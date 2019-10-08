@@ -15,7 +15,7 @@ from torchvision import transforms as trans
 from utils import get_time, gen_plot, plot_scatter, hflip_batch, \
         separate_bn_paras, cosineDim1, MultipleOptimizer,\
         getTFNPString, heatmap, heatmap_seaborn, annotate_heatmap
-from data.data_pipe import de_preprocess, get_train_loader, get_val_data
+from data.data_pipe import de_preprocess, get_train_loader, get_val_data, loader_from_carray
 from model import Backbone, Arcface, MobileFaceNet, Am_softmax, l2_norm, Backbone_FC2Conv
 from networks import AttentionXCosNet
 from net_sphere import sphere20a, AngleLoss, AngleLinear
@@ -201,6 +201,17 @@ class face_learner(object):
 #         self.writer.add_scalar('{}_val_std'.format(db_name), val_std, self.step)
 #         self.writer.add_scalar('{}_far:False Acceptance Ratio'.format(db_name), far, self.step)
 
+    def get_x_cosine(self, grid_feat1, grid_feat2, attention=None):
+        if attention is None:
+            # Size of attention: (bs//2, 1, 7, 7)
+            attention = self.model_attention(grid_feat1, grid_feat2)
+        # Size of xCos: (bs//2,)
+        xCos, cos_patched = self.attention_loss.computeXCos(
+                grid_feat1, grid_feat2, attention,
+                returnCosPatched=True)
+        attention = torch.squeeze(attention.permute(0, 2, 3, 1))
+        return xCos, attention, cos_patched
+
     def evaluate(self, conf, carray, issame, nrof_folds = 5, tta = False):
         '''
         carray: list (2 * # of pairs, 3, 112, 112)
@@ -235,6 +246,15 @@ class face_learner(object):
         self.model.returnGrid = True
         return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
 
+    def _to_loader(self, carray_or_loader, conf):
+        if isinstance(carray_or_loader, torch.utils.data.DataLoader):
+            loader = carray_or_loader
+        elif isinstance(carray_or_loader, bcolz.carray_ext.carray):
+            loader = loader_from_carray(carray_or_loader, conf)
+        else:
+            raise NotImplementedError()
+        return loader
+
     def getXCos(self, carray, conf, tta=False, attention=None, returnCosGt=False, returnXCAP=False):
         '''
         returnXCAP: return xCoses, Coses, attentionMaps, cosPatchedMaps
@@ -242,13 +262,10 @@ class face_learner(object):
         self.model.eval()
         self.model.returnGrid = True  # Remember to reset this before return!
         self.model_attention.eval()
+        loader = self._to_loader(carray, conf)
 
-        idx = 0
-        idx_xCos = 0
-        xCoses = np.zeros(len(carray)//2)  # XXX I fix the size...
-        gtCoses = np.zeros(len(carray)//2)
-        cosPatchedMaps = np.zeros((len(carray)//2, 7, 7))
-        attentionMaps = np.zeros((len(carray)//2, 7, 7))
+        output_keys = ['xCos', 'gtCos', 'cosPatchedMap', 'attentionMap']
+        output_dict = {key: [] for key in output_keys}
 
         with torch.no_grad():
             def batch2feat(batch, conf, tta):
@@ -297,36 +314,44 @@ class face_learner(object):
                 attentionMap = attentionMap.cpu().numpy()
                 return xCos, gtCos, cos_patched, attentionMap
 
-            while idx + conf.batch_size <= len(carray):
-                batch = torch.tensor(carray[idx:idx + conf.batch_size])
-                xCos, gtCos, cos_patched, attentionMap = batch2XCosAndGtCos(
-                        batch, attention, conf, tta)
+            for batch in loader:
+                xCos, gtCos, cos_patched, attentionMap = batch2XCosAndGtCos(batch, attention, conf, tta)
+                for output_key, output in zip(output_keys, [xCos, gtCos, cos_patched, attentionMap]):
+                    output_dict[output_key].append(output)
 
-                idx_xCosEnd = idx_xCos + conf.batch_size//2
-                xCoses[idx_xCos:idx_xCosEnd] = xCos
-                gtCoses[idx_xCos:idx_xCosEnd] = gtCos
-                cosPatchedMaps[idx_xCos:idx_xCosEnd] = cos_patched
-                attentionMaps[idx_xCos:idx_xCosEnd] = attentionMap
+            for key in output_keys:
+                output_dict[key] = np.concatenate(output_dict[key], axis=0)
 
-                idx += conf.batch_size
-                idx_xCos += conf.batch_size//2
-
-            if idx < len(carray):
-                batch = torch.tensor(carray[idx:])
-                xCos, gtCos, cos_patched, attentionMap = batch2XCosAndGtCos(
-                        batch, attention, conf, tta)
-
-                xCoses[idx_xCos:] = xCos
-                gtCoses[idx_xCos:] = gtCos
-                cosPatchedMaps[idx_xCos:] = cos_patched
-                attentionMaps[idx_xCos:] = attentionMap
         if returnXCAP:
-            return xCoses, gtCoses, attentionMaps, cosPatchedMaps
+            return (output_dict[key] for key in output_keys)
 
         if returnCosGt:
-            return xCoses, gtCoses
+            return (output_dict[key] for key in ['xCos', 'gtCos'])
         else:
-            return xCoses
+            return output_dict['xCos']
+
+    def get_original_cosines(self, carray, conf, tta=False):
+        self.model.eval()
+        self.model.returnGrid = True  # Remember to reset this before return!
+        self.model_attention.eval()
+        assert conf.batch_size % 2 == 0, "Need even batch size"
+        loader = self._to_loader(carray, conf)
+
+        cosines = []
+        with torch.no_grad():
+            for batch in loader:
+                if tta:
+                    fliped = hflip_batch(batch)
+                    feat_orig = self.model.get_original_feature(batch.to(conf.device))
+                    feat_flip = self.model.get_original_feature(fliped.to(conf.device))
+                    feat = (feat_orig + feat_flip) / 2
+                else:
+                    feat = self.model.get_original_feature(batch)
+                feat_left_person = l2normalize(feat[0::2])
+                feat_right_person = l2normalize(feat[1::2])
+                cosine = cosineDim1(feat_left_person, feat_right_person)
+                cosines.append(cosine.cpu().numpy())
+        return np.concatenate(cosines, axis=0)
 
     def evaluate_attention(self, conf, carray, issame,
                            nrof_folds=5, tta=False, attention=None):
@@ -338,8 +363,10 @@ class face_learner(object):
         attention: GPUtorch.FloatTensor((bs//2, 1, 7, 7)),is ones/sum() or corr
         '''
         xCoses = self.getXCos(carray, conf, tta=tta, attention=attention)
-        tpr, fpr, accuracy, best_thresholds = evaluate_attention(
-                xCoses, issame, nrof_folds)
+        return self.evaluate_and_plot_roc(xCoses, issame, nrof_folds)
+
+    def evaluate_and_plot_roc(self, coses, issame, nrof_folds=5):
+        tpr, fpr, accuracy, best_thresholds = evaluate_attention(coses, issame, nrof_folds)
         buf = gen_plot(fpr, tpr)
         roc_curve = Image.open(buf)
         roc_curve_tensor = trans.ToTensor()(roc_curve)

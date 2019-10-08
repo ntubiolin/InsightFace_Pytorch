@@ -1,4 +1,7 @@
+import os.path as op
+
 import numpy as np
+import pandas as pd
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -93,6 +96,8 @@ class SiameseWholeFace(Dataset):
         self.wFace_dataset = wFace_dataset
         self.train = self.wFace_dataset.train
         self.memoryAll = self.wFace_dataset.memoryAll
+
+
 
         if self.train:
             self.train_labels = self.wFace_dataset.train_labels
@@ -721,6 +726,309 @@ class DataMix:
 
     def __len__(self):
         return self._data_len
+
+
+class CArrayDataset(Dataset):
+    def __init__(self, carray):
+        self.carray = carray
+
+    def __getitem__(self, idx):
+        return self.carray[idx]
+
+    def __len__(self):
+        return len(self.carray)
+
+
+class IJBCVerificationBaseDataset(Dataset):
+    """
+        Base class of IJB-C verification dataset to read neccesary
+        csv files and provide general functions.
+    """
+    def __init__(self, ijbc_data_root, leave_ratio=1.0):
+        # read all csvs neccesary for verification
+        self.ijbc_data_root = ijbc_data_root
+        dtype_sid_tid = {'SUBJECT_ID': str, 'TEMPLATE_ID': str}
+        self.metadata = pd.read_csv(op.join(ijbc_data_root, 'protocols', 'ijbc_metadata_with_age.csv'),
+                                    dtype=dtype_sid_tid)
+        test1_dir = op.join(ijbc_data_root, 'protocols', 'test1')
+        self.enroll_templates = pd.read_csv(op.join(test1_dir, 'enroll_templates.csv'), dtype=dtype_sid_tid)
+        self.verif_templates = pd.read_csv(op.join(test1_dir, 'verif_templates.csv'), dtype=dtype_sid_tid)
+        self.match = pd.read_csv(op.join(test1_dir, 'match.csv'), dtype=str)
+
+        if leave_ratio < 1.0:  # shrink the number of verified pairs
+            indice = np.arange(len(self.match))
+            np.random.seed(0)
+            np.random.shuffle(indice)
+            left_number = int(len(self.match) * leave_ratio)
+            self.match = self.match.iloc[indice[:left_number]]
+
+    def _get_both_entries(self, idx):
+        enroll_tid = self.match.iloc[idx]['ENROLL_TEMPLATE_ID']
+        verif_tid = self.match.iloc[idx]['VERIF_TEMPLATE_ID']
+        enroll_entries = self.enroll_templates[self.enroll_templates.TEMPLATE_ID == enroll_tid]
+        verif_entries = self.verif_templates[self.verif_templates.TEMPLATE_ID == verif_tid]
+        return enroll_entries, verif_entries
+
+    def _get_cropped_path_suffix(self, entry):
+        sid = entry['SUBJECT_ID']
+        filepath = entry['FILENAME']
+        img_or_frames, fname = op.split(filepath)
+        fname_index, _ = op.splitext(fname)
+        cropped_path_suffix = op.join(img_or_frames, f'{sid}_{fname_index}.jpg')
+        return cropped_path_suffix
+
+    def __len__(self):
+        return len(self.match)
+
+
+class IJBCVerificationDataset(IJBCVerificationBaseDataset):
+    """
+        IJB-C verification dataset (`test1` in the folder) who transforms
+        the cropped faces into tensors.
+
+        Note that entries in this verification dataset contains lots of
+        repeated faces. A better way to evaluate a model's score is to
+        precompute all faces features and store them into disks. (
+        see `IJBCAllCroppedFacesDataset` and `IJBCVerificationPathDataset`)
+    """
+    def __init__(self, ijbc_data_root):
+        super().__init__(ijbc_data_root)
+        self.transforms = transforms.Compose([
+            transforms.Resize([112, 112]),
+            transforms.ToTensor(),
+            transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+        ])
+
+    def _get_cropped_face_image_by_entry(self, entry):
+        cropped_path_suffix = self._get_cropped_path_suffix(entry)
+        cropped_path = op.join(self.ijbc_data_root, 'cropped_faces', cropped_path_suffix)
+        return Image.open(cropped_path)
+
+    def _get_tensor_by_entries(self, entries):
+        faces_imgs = [self._get_cropped_face_image_by_entry(e) for idx, e in entries.iterrows()]
+        faces_tensors = [self.transforms(img) for img in faces_imgs]
+        return torch.stack(faces_tensors, dim=0)
+
+    def __getitem__(self, idx):
+        enroll_entries, verif_entries = self._get_both_entries(idx)
+        enroll_faces_tensor = self._get_tensor_by_entries(enroll_entries)
+        verif_faces_tensor = self._get_tensor_by_entries(verif_entries)
+        return {
+            "enroll_faces_tensor": enroll_faces_tensor,
+            "verif_faces_tensor": verif_faces_tensor
+        }
+
+
+class IJBCVerificationPathDataset(IJBCVerificationBaseDataset):
+    """
+        This dataset read the match file of verification set in IJB-C
+        (in the `test1` directory) and output the cropped faces' paths
+        of both enroll_template and verif_template for each match.
+
+        Models outside can use the path information to read their stored
+        features and compute the similarity score of enroll_template and
+        verif_template.
+    """
+    def __init__(self, ijbc_data_root, occlusion_lower_bound=0, leave_ratio=1.0):
+        super().__init__(ijbc_data_root, leave_ratio=leave_ratio)
+        self.occlusion_lower_bound = occlusion_lower_bound
+        self.metadata['OCC_sum'] = self.metadata[[f'OCC{i}' for i in range(1, 19)]].sum(axis=1)
+        self.reindexed_meta = self.metadata.set_index(['SUBJECT_ID', 'FILENAME'])
+
+    def _filter_out_occlusion_insufficient_entries(self, entries):
+        if self.occlusion_lower_bound == 0:
+            return [entry for _, entry in entries.iterrows()]
+
+        out = []
+        for _, entry in entries.iterrows():
+            occlusion_sum = self.reindexed_meta.loc[(entry['SUBJECT_ID'], entry['FILENAME']), 'OCC_sum']
+            if occlusion_sum.values[0] >= self.occlusion_lower_bound:
+                out.append(entry)
+        return out
+
+    def __getitem__(self, idx):
+        enroll_entries, verif_entries = self._get_both_entries(idx)
+
+        is_same = (enroll_entries['SUBJECT_ID'].iloc[0] == verif_entries['SUBJECT_ID'].iloc[0])
+        is_same = 1 if is_same else 0
+        enroll_template_id = enroll_entries['TEMPLATE_ID'].iloc[0],
+        verif_template_id = verif_entries['TEMPLATE_ID'].iloc[0],
+
+        enroll_entries = self._filter_out_occlusion_insufficient_entries(enroll_entries)
+        verif_entries = self._filter_out_occlusion_insufficient_entries(verif_entries)
+
+        def path_suffixes(entries):
+            return [self._get_cropped_path_suffix(entry) for entry in entries]
+        return {
+            "enroll_template_id": enroll_template_id,
+            "verif_template_id": verif_template_id,
+            "enroll_path_suffixes": path_suffixes(enroll_entries),
+            "verif_path_suffixes": path_suffixes(verif_entries),
+            "is_same": is_same
+        }
+
+
+class IJBCAllCroppedFacesDataset(Dataset):
+    """
+        This dataset loads all faces available in IJB-C and transform
+        them into tensors. The path for that face is output along with
+        its tensor.
+        This is for models to compute all faces' features and store them
+        into disks, otherwise the verification testing set contains too many
+        repeated faces that should not be computed again and again.
+    """
+    def __init__(self, ijbc_data_root):
+        self.ijbc_data_root = ijbc_data_root
+        self.transforms = transforms.Compose([
+            transforms.Resize([112, 112]),
+            transforms.ToTensor(),
+            transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+        ])
+        self.all_cropped_paths_img = sorted(glob(
+            op.join(self.ijbc_data_root, 'cropped_faces', 'img', '*.jpg')))
+        self.len_set1 = len(self.all_cropped_paths_img)
+        self.all_cropped_paths_frames = sorted(glob(
+            op.join(self.ijbc_data_root, 'cropped_faces', 'frames', '*.jpg')))
+
+    def __getitem__(self, idx):
+        if idx < self.len_set1:
+            path = self.all_cropped_paths_img[idx]
+        else:
+            path = self.all_cropped_paths_frames[idx - self.len_set1]
+        img = Image.open(path).convert('RGB')
+        tensor = self.transforms(img)
+        return {
+            "tensor": tensor,
+            "path": path,
+        }
+
+    def __len__(self):
+        return len(self.all_cropped_paths_frames) + len(self.all_cropped_paths_img)
+
+
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+def make_square_box(box):
+    width = box[2] - box[0]
+    height = box[3] - box[1]
+    if width > height:
+        diff = width - height
+        box[1] -= diff // 2
+        box[3] += diff // 2
+    elif height > width:
+        diff = height - width
+        box[0] -= diff // 2
+        box[2] += diff // 2
+    return box
+
+
+class IJBAVerificationDataset(Dataset):
+    def __init__(self, ijba_data_root='/tmp3/zhe2325138/IJB/IJB-A/', split_name='split1',
+                 only_first_image=False, aligned_facial_3points=False):
+        self.ijba_data_root = ijba_data_root
+        split_root = op.join(ijba_data_root, 'IJB-A_11_sets', split_name)
+        self.only_first_image = only_first_image
+
+        self.metadata = pd.read_csv(op.join(split_root, 'verify_metadata_1.csv'))
+        self.metadata = self.metadata.set_index('TEMPLATE_ID')
+        self.comparisons = pd.read_csv(op.join(split_root, 'verify_comparisons_1.csv'), header=None)
+
+        self.transform = transforms.Compose([
+            transforms.Resize([112, 112]),
+            transforms.ToTensor(),
+            transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+        ])
+
+        self.aligned_facial_3points = aligned_facial_3points
+        self.src_facial_3_points = self._get_source_facial_3points()
+
+    def _get_source_facial_3points(self, output_size=(112, 112)):
+        # set source landmarks based on 96x112 size
+        src = np.array([
+           [30.2946, 51.6963],  # left eye
+           [65.5318, 51.5014],  # right eye
+           [48.0252, 71.7366],  # nose
+           # [33.5493, 92.3655],  # left mouth
+           # [62.7299, 92.2041],  # right mouth
+        ], dtype=np.float32)
+
+        # scale landmarkS to match output size
+        src[:, 0] *= (output_size[0] / 96)
+        src[:, 1] *= (output_size[1] / 112)
+        return src
+
+    def _get_face_img_from_entry(self, entry, square=True):
+        fname = entry["FILE"]
+        if fname[:5] == 'frame':
+            fname = 'frames' + fname[5:]  # to fix error in annotation =_=
+        img = Image.open(op.join(self.ijba_data_root, 'images', fname)).convert('RGB')
+
+        if self.aligned_facial_3points:
+            raise NotImplementedError
+        else:
+            face_box = [entry['FACE_X'], entry['FACE_Y'], entry['FACE_X'] + entry['FACE_WIDTH'],
+                        entry['FACE_Y'] + entry['FACE_HEIGHT']]  # left, upper, right, lower
+            face_box = make_square_box(face_box) if square else face_box
+            face_img = img.crop(face_box)
+        return face_img
+
+    def _get_tensor_from_entries(self, entries):
+        imgs = [self._get_face_img_from_entry(entry) for _, entry in entries.iterrows()]
+        tensors = torch.stack([
+            self.transform(img) for img in imgs
+        ])
+        return tensors
+
+    def __getitem__(self, idx):
+        t1, t2 = self.comparisons.iloc[idx]
+        t1_entries, t2_entries = self.metadata.loc[[t1]], self.metadata.loc[[t2]]
+        if self.only_first_image:
+            t1_entries, t2_entries = t1_entries.iloc[:1], t2_entries.iloc[:1]
+
+        t1_tensors = self._get_tensor_from_entries(t1_entries)
+        t2_tensors = self._get_tensor_from_entries(t2_entries)
+        if self.only_first_image:
+            t1_tensors, t2_tensors = t1_tensors.squeeze(0), t2_tensors.squeeze(0)
+
+        s1, s2 = t1_entries['SUBJECT_ID'].iloc[0], t2_entries['SUBJECT_ID'].iloc[0]
+        is_same = 1 if (s1 == s2) else 0
+        return {
+            "comparison_idx": idx,
+            "t1_tensors": t1_tensors,
+            "t2_tensors": t2_tensors,
+            "is_same": is_same,
+        }
+
+    def __len__(self):
+        return len(self.comparisons)
+
+
+class ARVerificationAllPathDataset(Dataset):
+    '/tmp3/biolin/datasets/face/ARFace/test2'
+    def __init__(self, dataset_root='/tmp2/zhe2325138/dataset/ARFace/mtcnn_aligned_and_cropped/'):
+        self.dataset_root = dataset_root
+        self.face_image_paths = sorted(glob(op.join(self.dataset_root, '*.png')))
+
+        self.transforms = transforms.Compose([
+            transforms.Resize([112, 112]),
+            transforms.ToTensor(),
+            transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+        ])
+
+    def __getitem__(self, idx):
+        fpath = self.face_image_paths[idx]
+        fname, _ = op.splitext(op.basename(fpath))
+
+        image = Image.open(fpath)
+        image_tensor = self.transforms(image)
+        return {
+            'image_tensor': image_tensor,
+            'fname': fname
+        }
+
+    def __len__(self):
+        return len(self.face_image_paths)
 
 
 if __name__ == "__main__":
