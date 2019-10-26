@@ -206,7 +206,7 @@ class face_learner(object):
             # Size of attention: (bs//2, 1, 7, 7)
             attention = self.model_attention(grid_feat1, grid_feat2)
         # Size of xCos: (bs//2,)
-        xCos, cos_patched = self.attention_loss.computeXCos(
+        xCos, cos_patched = self.xCos_loss_with_attention.computeXCos(
                 grid_feat1, grid_feat2, attention,
                 returnCosPatched=True)
         attention = torch.squeeze(attention.permute(0, 2, 3, 1))

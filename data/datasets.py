@@ -1,3 +1,4 @@
+import cv2
 import os.path as op
 
 import numpy as np
@@ -9,6 +10,7 @@ from torchvision import transforms, datasets
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import BatchSampler
 from torchvision.datasets import ImageFolder
+from .align import Alignment
 cos = nn.CosineSimilarity(dim=0, eps=1e-6)
 
 
@@ -868,6 +870,56 @@ class IJBCVerificationPathDataset(IJBCVerificationBaseDataset):
         }
 
 
+class IJBVerificationPathDataset(Dataset):
+    """
+        This dataset read the match file of verification set in ijb_dataset_root
+        (in the `meta` directory, the filename is sth. like
+        "ijbc_template_pair_label.txt") and output the cropped faces'
+        paths of both enroll_template and verif_template for each match.
+
+        Models outside can use the path information to read their stored
+        features and compute the similarity score of enroll_template and
+        verif_template.
+    """
+    def __init__(self, ijb_dataset_root, leave_ratio=1.0, dataset_type='IJBB'):
+        # TODO implement the leave_ratio method
+        if dataset_type == 'IJBB':
+            match_filename = op.join(ijb_dataset_root, 'meta',
+                                     'ijbb_template_pair_label.txt')
+        elif dataset_type == 'IJBC':
+            match_filename = op.join(ijb_dataset_root, 'meta',
+                                     'ijbc_template_pair_label.txt')
+        else:
+            raise NotImplementedError
+        col_name = ["TEMPLATE_ID1", "TEMPLATE_ID2", "IS_SAME"]
+        self.match = pd.read_csv(match_filename, delim_whitespace=True,
+                                 header=None, dtype=str, names=col_name)
+
+        if leave_ratio < 1.0:  # shrink the number of verified pairs
+            indice = np.arange(len(self.match))
+            np.random.seed(0)
+            np.random.shuffle(indice)
+            left_number = int(len(self.match) * leave_ratio)
+            self.match = self.match.iloc[indice[:left_number]]
+
+    def __getitem__(self, idx):
+        def path_suffixes(id_str):
+            path = f'{id_str}.jpg'
+            return [path]
+        id1 = self.match.iloc[idx]["TEMPLATE_ID1"]
+        id2 = self.match.iloc[idx]["TEMPLATE_ID2"]
+        return {
+            "enroll_template_id": id1,
+            "verif_template_id": id2,
+            "enroll_path_suffixes": path_suffixes(id1),
+            "verif_path_suffixes": path_suffixes(id2),
+            "is_same": self.match.iloc[idx]["IS_SAME"]
+        }
+
+    def __len__(self):
+        return len(self.match)
+
+
 class IJBCAllCroppedFacesDataset(Dataset):
     """
         This dataset loads all faces available in IJB-C and transform
@@ -904,6 +956,68 @@ class IJBCAllCroppedFacesDataset(Dataset):
 
     def __len__(self):
         return len(self.all_cropped_paths_frames) + len(self.all_cropped_paths_img)
+
+
+class IJBCroppedFacesDataset(Dataset):
+    """
+        This dataset loads all faces available in IJB-B/C, align them,
+        and transform them into tensors.
+        The path for that face is output along with its tensor.
+        This is for models to compute all faces' features and store them
+        into disks, otherwise the verification testing set contains too many
+        repeated faces that should not be computed again and again.
+    """
+    def __init__(self, ijbc_data_root, is_ijbb=True):
+        self.ijbc_data_root = ijbc_data_root
+        self.transforms = transforms.Compose([
+            transforms.Resize([112, 112]),
+            transforms.ToTensor(),
+            transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
+        ])
+        self.img_dir = op.join(self.ijbc_data_root, 'loose_crop')
+        if is_ijbb:
+            landmark_txt = 'ijbb_name_5pts_score.txt'
+        else:
+            landmark_txt = 'ijbc_name_5pts_score.txt'
+        landmark_path = op.join(self.ijbc_data_root,
+                                'meta', landmark_txt)
+        self.imgs_list, self.landmarks_list = self.loadImgPathAndLandmarks(landmark_path)
+        self.alignment = Alignment()
+
+    def loadImgPathAndLandmarks(self, path):
+        imgs_list = []
+        landmarks_list = []
+        with open(path) as img_list:
+            lines = img_list.readlines()
+            for line in lines:
+                name_lmk_score = line.strip().split(' ')
+                img_name = os.path.join(self.img_dir, name_lmk_score[0])
+                lmk = np.array([float(x) for x in name_lmk_score[1:-1]], dtype=np.float32)
+                lmk = lmk.reshape( (5,2) )
+
+                imgs_list.append(img_name)
+                landmarks_list.append(lmk)
+
+        landmarks_list = np.array(landmarks_list)
+        return imgs_list, landmarks_list
+
+    def __getitem__(self, idx):
+        img_path = self.imgs_list[idx]
+        landmark = self.landmarks_list[idx]
+        img = cv2.imread(img_path)
+        img = self.alignment.align(img, landmark)
+
+        # img_feats.append(embedng.get(img,lmk))
+        img = Image.fromarray(img)
+
+        tensor = self.transforms(img)
+        return {
+            "tensor": tensor,
+            "path": img_path,
+        }
+
+    def __len__(self):
+        return len(self.imgs_list)
 
 
 from PIL import ImageFile
