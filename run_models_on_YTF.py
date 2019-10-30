@@ -120,7 +120,7 @@ model_names = [
 ]
 
 
-def run_all_models():
+def run_all_my_models():
     for model_name in model_names:
         print(f'-------- Runing on model {model_name} --------')
         run_ours_YTF(model_name)
@@ -132,7 +132,8 @@ if __name__ == '__main__':
     parser.add_argument('--model', default='all', help='model to test')
     args = parser.parse_args()
     if(args.model == 'all'):
-        run_all_models()
+        run_all_my_models()
+        run_irse50_YTF()
     elif(args.model == 'irse50'):
         run_irse50_YTF()
     elif(args.model == 'cosface'):
