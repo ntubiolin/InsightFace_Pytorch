@@ -47,8 +47,6 @@ conf.batch_size=20 # Why bs_size can only be the number that divide 6000 well?
 learner = face_learner(conf, inference=True)
 # # Process YTF data and save them
 dataset_name = 'YTF'
-feat_root_dir = 'work_space/YTF_features_aligned'
-os.makedirs(feat_root_dir, exist_ok=True)
 loader = torch.utils.data.DataLoader(
     # YTFCroppedFacesDataset('data/YTF_aligned_SeqFace'),
     YTFCroppedFacesDataset('/home/r07944011/datasets_ssd/face/YTF/align_InsightFace/cropped_and_aligned'),
@@ -130,7 +128,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='feature extraction')
     # general
     parser.add_argument('--model', default='all', help='model to test')
+    parser.add_argument('--feat_root_dir',
+                        default='work_space/YTF_features_aligned',
+                        help='model to test')
     args = parser.parse_args()
+    feat_root_dir = args.feat_root_dir
+    os.makedirs(feat_root_dir, exist_ok=True)
+
     if(args.model == 'all'):
         run_all_my_models()
         run_irse50_YTF()
