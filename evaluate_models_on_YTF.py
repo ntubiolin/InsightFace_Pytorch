@@ -83,8 +83,6 @@ def evaluate_and_plot(scores, is_sames, logger, nrof_folds=10,
 # # Evaluate on YTF
 leave_ratio = 1
 dataset_name = 'YTF'
-feat_root_dir = 'work_space/YTF_features'
-comparison_strategy = 'mean_comparison'  # 'compare_only_first_img'
 loader = torch.utils.data.DataLoader(
     YTFVerificationPathDataset(pair_file='data/YTF_aligned_SeqFace/splits.txt',
                                img_dir='data/YTF_aligned_SeqFace/',
@@ -289,11 +287,19 @@ def eval_all_models():
 
 
 if __name__ == '__main__':
-    print('>>>>> Comparison Strategy:', comparison_strategy)
     parser = argparse.ArgumentParser(description='evaluation given the features')
     # general
     parser.add_argument('--model', default='all', help='model to test')
+    parser.add_argument('--feat_root_dir',
+                        default='work_space/YTF_features_aligned',
+                        help='where the features are stored')
+    parser.add_argument('--cmp_strategy', default='mean_comparison',
+                        help='mean_comparison or compare_only_first_img')
     args = parser.parse_args()
+
+    feat_root_dir = args.feat_root_dir
+    comparison_strategy = args.cmp_strategy
+    print('>>>>> Comparison Strategy:', comparison_strategy)
     if(args.model == 'all'):
         eval_all_models()
     elif(args.model == 'irse50'):
