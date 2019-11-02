@@ -83,7 +83,7 @@ def run_ours_IJBA(loader, model_name, feat_output_root,
             t2_tensors = batch['t2_tensors']
 
             if not only_first_image:
-                t1_tensors, t2_tensors = t2_tensors.squeeze(0), t2_tensors.squeeze(0)
+                t1_tensors, t2_tensors = t1_tensors.squeeze(0), t2_tensors.squeeze(0)
 
             comparison_idx = batch['comparison_idx']
             is_same = batch['is_same']
@@ -98,8 +98,7 @@ def run_ours_IJBA(loader, model_name, feat_output_root,
                 raise NotImplementedError
 
             if not only_first_image:
-                feat1, feat2 = feat1.unsqueeze(0), feat2.unsqueeze(0
-                                                                  )
+                feat1, feat2 = feat1.unsqueeze(0), feat2.unsqueeze(0)
 #             print(feat1.shape, t1_tensors.shape)
 
             for idx, f1, f2, same in zip(comparison_idx, feat1, feat2, is_same):
@@ -111,11 +110,14 @@ def run_ours_IJBA(loader, model_name, feat_output_root,
                 # if i % 50 == 0:
                 #     print(f'Saving to {target_path}')
 
-                np.savez(target_path, idx=idx.cpu().numpy(), same=same.cpu().numpy(),
+                np.savez(target_path, idx=idx.cpu().numpy(),
+                         same=same.cpu().numpy(),
                          f1=f1.cpu().numpy(), f2=f2.cpu().numpy(), )
 
+
 loader_IJBA = torch.utils.data.DataLoader(
-    IJBAVerificationDataset(only_first_image=False),
+    IJBAVerificationDataset(only_first_image=False,
+                            ijba_data_root='data/IJB-A'),
     batch_size=1,
     num_workers=8
 )
