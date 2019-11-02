@@ -7,7 +7,7 @@ import argparse
 from glob import glob
 from data.data_pipe import get_val_pair
 from torchvision import transforms as trans
-from tqdm import tqdm_notebook as tqdm
+from tqdm import tqdm
 import torch
 import numpy as np
 import pandas as pd
@@ -42,7 +42,8 @@ def l2normalize(x, ord=2, axis=None):
 
 
 def score_fn_original(feat1, feat2):
-    return l2normalize(feat1).dot(l2normalize(feat2))
+    # feat1, feat2.shape (512, x), x is the # of imgs
+    return l2normalize(feat1).dot(l2normalize(feat2).T).mean()
 
 
 def score_fn_ours(feat_map1, feat_map2, learner, attention_strategy='learned', attention_weight=None):
@@ -77,115 +78,8 @@ def evaluate_and_plot(scores, is_sames, nrof_folds=10, dataset_name='AR Face', d
     return accuracy
 
 
-# # Evaluate on IJB-C
-
-# In[4]:
-
-
-loader = torch.utils.data.DataLoader(
-    IJBCVerificationPathDataset('/tmp3/zhe2325138/IJB/IJB-C/', occlusion_lower_bound=1, leave_ratio=0.002),
-    batch_size=1, shuffle=False
-)
-len(loader)
-
-
-# In[5]:
-
-
-def _get_feature_original(feat_dir, suffixes, ends_with='.npy'):
-    return np.concatenate([
-        np.load(op.join(feat_dir, suffix[0]) + ends_with)
-        for suffix in suffixes
-    ], axis=0)
-
-
-def _get_feature_ours(feat_dir, suffixes, ends_with='.npz'):
-#     print(op.join(feat_dir, suffixes[0][0]) + ends_with)
-    return np.concatenate([
-        np.load(op.join(feat_dir, suffix[0]) + ends_with)['feat_map']
-        for suffix in suffixes
-    ], axis=0)
-
-
-def run_IJBC_verification(loader, feat_dir, compare_strategy, _get_feature, score_fn, score_fn_kargs,
-                          learner=None, attention_strategy=None):
-    assert compare_strategy in ['compare_only_first_img', 'mean_comparison']
-    is_sames = []
-    scores = []
-    init_time = time.time()
-    ignored_count = 0
-    for i, pair in enumerate(loader):
-        if i % 1000 == 0:
-            print(f"Processing match {i}, elapsed {time.time() - init_time:.1f} seconds")
-        if len(pair['enroll_path_suffixes']) == 0 or len(pair['verif_path_suffixes']) == 0:
-            ignored_count += 1
-            continue
-
-        if compare_strategy == 'compare_only_first_img':
-            enroll_feature = _get_feature(feat_dir, pair['enroll_path_suffixes'][:1]).squeeze(0)
-            verif_feature = _get_feature(feat_dir, pair['verif_path_suffixes'][:1]).squeeze(0)
-        elif compare_strategy == 'mean_comparison':
-            enroll_feature = _get_feature(feat_dir, pair['enroll_path_suffixes']).mean(axis=0)
-            verif_feature = _get_feature(feat_dir, pair['verif_path_suffixes']).mean(axis=0)
-        else:
-            raise NotImplementedError
-        score = score_fn(enroll_feature, verif_feature, **score_fn_kargs)
-        scores.append(score)
-        is_sames.append(pair['is_same'].cpu().numpy().astype(np.bool))
-
-    print(f'{ignored_count} pairs are ignored since one of the template has no valid image.')
-    scores = np.array(scores).squeeze()
-    is_sames = np.array(is_sames).squeeze().astype(np.bool)
-    return scores, is_sames
-
-
-# In[6]:
-
-
-all_scores = {}
-all_acc = {}
-
-def record_scores_and_acc(scores, acc, name, name2=None):
-    all_scores[name] = scores
-    all_acc[name] = acc
-
-
-# In[ ]:
-
-
-scores, is_sames = run_IJBC_verification(
-    loader, feat_dir='./saved_features/IJB-C/ir_se50_original/',
-    score_fn=score_fn_original, _get_feature=_get_feature_original,
-    compare_strategy='compare_only_first_img', score_fn_kargs={}
-)
-acc = evaluate_and_plot(scores, is_sames, nrof_folds=10, dataset_name='IJBC')
-all_scores['original_ArcFace'] = scores
-all_acc['original_ArcFace'] = acc
-
-
-# In[ ]:
-
-
-model_name = '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace'
-fixed_weight = np.load(f'/tmp3/biolin/data/insightFace_pytorch/{model_name}.npy')
-fixed_weight /= fixed_weight.sum()
-
-for attention_strategy in ['uniform', 'learned', 'fixed']:
-    print(f'===== attention_strategy: {attention_strategy} =====')
-    scores, is_sames = run_IJBC_verification(
-        loader, feat_dir=f'./saved_features/IJB-C/{model_name}',
-        score_fn=score_fn_ours, _get_feature=_get_feature_ours,
-        compare_strategy='compare_only_first_img',
-        score_fn_kargs={'learner': learner, 'attention_strategy': attention_strategy,
-                        'attention_weight': fixed_weight}
-    )
-    acc = evaluate_and_plot(scores, is_sames, nrof_folds=10, dataset_name='IJBC')
-
-    all_scores[f'{model_name}_{attention_strategy}'] = scores
-    all_acc[f'{model_name}_{attention_strategy}'] = acc
-
 # # IJB-A
-
+feat_root_dir = 'work_space/IJB_A_features/IJB-A_full_template/split1/'
 # In[4]:
 
 
@@ -218,9 +112,9 @@ def run_IJBA_verification(feat_dir, score_fn, score_fn_kargs, shuffle_order,
     fnames = sorted(glob(op.join(feat_dir, '*.npz')))
     fnames = [fnames[i] for i in shuffle_order]
     print(len(fnames))
-    for i, fname in enumerate(fnames):
-        if i % 500 == 0:
-            print(f"Processing match {i}, elapsed {time.time() - init_time:.1f} seconds")
+    for i, fname in tqdm(enumerate(fnames), total=len(fnames)):
+        # if i % 500 == 0:
+        #     print(f"Processing match {i}, elapsed {time.time() - init_time:.1f} seconds")
         f1, f2, is_same = _get_feature(fname)
         score = score_fn(f1, f2, **score_fn_kargs)
         score = score.cpu().numpy() if torch.is_tensor(score) else score
@@ -236,7 +130,7 @@ def run_IJBA_verification(feat_dir, score_fn, score_fn_kargs, shuffle_order,
 
 
 scores, is_sames = run_IJBA_verification(
-    feat_dir='./saved_features/IJB-A/split1/ir_se50/',
+    feat_dir=os.path.join(feat_root_dir, 'ir_se50/'),
     score_fn=score_fn_original, score_fn_kargs={},
     shuffle_order=shuffle_order
 )
@@ -274,7 +168,7 @@ fixed_weight /= fixed_weight.sum()
 for attention_strategy in ['uniform', 'learned', 'fixed']:
     print(f'===== attention_strategy: {attention_strategy} =====')
     scores, is_sames = run_IJBA_verification(
-        feat_dir=f'./saved_features/IJB-A/split1/{model_name}',
+        feat_dir=os.path.join(feat_root_dir, f'{model_name}'),
         score_fn=score_fn_ours,
         score_fn_kargs={'learner': learner, 'attention_strategy': attention_strategy,
                         'attention_weight': fixed_weight},
@@ -284,3 +178,29 @@ for attention_strategy in ['uniform', 'learned', 'fixed']:
 
     all_scores[f'{model_name}_{attention_strategy}'] = scores
     all_acc[f'{model_name}_{attention_strategy}'] = acc
+
+
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser(description='evaluation given the features')
+#     # general
+#     parser.add_argument('--model', default='all', help='model to test')
+#     parser.add_argument('--feat_root_dir',
+#                         default='work_space/YTF_features_aligned',
+#                         help='where the features are stored')
+#     parser.add_argument('--cmp_strategy', default='mean_comparison',
+#                         help='mean_comparison or compare_only_first_img')
+#     args = parser.parse_args()
+#
+#     feat_root_dir = args.feat_root_dir
+#     comparison_strategy = args.cmp_strategy
+#     print('>>>>> Comparison Strategy:', comparison_strategy)
+#     if(args.model == 'all'):
+#         eval_all_models()
+#     elif(args.model == 'irse50'):
+#         evaluate_irse50_YTF()
+#     elif(args.model == 'cosface'):
+#         evaluate_ours_YTF(model_names[0])
+#     elif(args.model == 'arcface'):
+#         evaluate_ours_YTF(model_names[1])
+#     else:
+#         print('Unknown model name!')
