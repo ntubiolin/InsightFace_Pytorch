@@ -89,7 +89,8 @@ class YTFVerificationPathDataset(Dataset):
             "verif_template_id": id2,
             "enroll_path_suffixes": path_suffixes(id1),
             "verif_path_suffixes": path_suffixes(id2),
-            "is_same": self.match.iloc[idx][" is same:"].strip()
+            # "is_same": self.match.iloc[idx][" is same:"].strip()
+            "is_same": self.match.iloc[idx]["corrected labels"].strip()
         }
 
     def __len__(self):

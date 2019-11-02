@@ -84,7 +84,7 @@ def evaluate_and_plot(scores, is_sames, logger, nrof_folds=10,
 leave_ratio = 1
 dataset_name = 'YTF'
 loader = torch.utils.data.DataLoader(
-    YTFVerificationPathDataset(pair_file='data/YTF_aligned_SeqFace/splits.txt',
+    YTFVerificationPathDataset(pair_file='data/YTF_aligned_SeqFace/splits_corrected_1.txt',
                                img_dir='data/YTF_aligned_SeqFace/',
                                leave_ratio=leave_ratio),
     batch_size=1, shuffle=False
