@@ -1044,9 +1044,12 @@ class IJBAVerificationDataset(Dataset):
         split_root = op.join(ijba_data_root, 'IJB-A_11_sets', split_name)
         self.only_first_image = only_first_image
 
-        self.metadata = pd.read_csv(op.join(split_root, 'verify_metadata_1.csv'))
+        self.metadata = pd.read_csv(op.join(split_root,
+                                    f'verify_metadata_{split_name[5:]}.csv'))
         self.metadata = self.metadata.set_index('TEMPLATE_ID')
-        self.comparisons = pd.read_csv(op.join(split_root, 'verify_comparisons_1.csv'), header=None)
+        self.comparisons = pd.read_csv(op.join(split_root,
+                                               f'verify_comparisons_{split_name[5:]}.csv'),
+                                       header=None)
 
         self.transform = transforms.Compose([
             transforms.Resize([112, 112]),

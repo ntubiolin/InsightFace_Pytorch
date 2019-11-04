@@ -54,15 +54,17 @@ learner = face_learner(conf, inference=True)
 
 # # IJB-A
 
+
 # Extract features for IJB-A dataset
-def run_ours_IJBA(loader, model_name, feat_output_root,
+def run_ours_IJBA(loader, model_name,
+                  feat_output_root, split_name,
                   xCos_or_original='xCos',
                   only_first_image=True):
     if not only_first_image:
         assert loader.batch_size == 1
 
     dst_dir = op.join(feat_output_root,
-                      f'IJB-A_full_template/split1/{model_name}/')
+                      f'IJB-A_full_template/{split_name}/{model_name}/')
     os.makedirs(dst_dir, exist_ok=True)
 
     model_atten = True if xCos_or_original == 'xCos' else False
@@ -115,12 +117,6 @@ def run_ours_IJBA(loader, model_name, feat_output_root,
                          f1=f1.cpu().numpy(), f2=f2.cpu().numpy(), )
 
 
-loader_IJBA = torch.utils.data.DataLoader(
-    IJBAVerificationDataset(only_first_image=False,
-                            ijba_data_root='data/IJB-A'),
-    batch_size=1,
-    num_workers=8
-)
 
 arcFace_model_name = \
         '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None'
@@ -133,42 +129,61 @@ model_names = [
     # '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None',
 ]
 
-def run_all_my_models(feat_root_dir):
+def run_all_my_models(feat_root_dir, split_name):
     for model_name in model_names:
         print(f'-------- Runing on model {model_name} --------')
-        run_ours_IJBA(loader_IJBA, model_name, feat_root_dir,
+        run_ours_IJBA(loader_IJBA, model_name,
+                      feat_root_dir, split_name,
                       xCos_or_original='xCos', only_first_image=False)
 
 
 if __name__ == '__main__':
+
     parser = argparse.ArgumentParser(description='feature extraction')
     # general
     parser.add_argument('--model', default='all', help='model to test')
+    parser.add_argument('--split', default='1', help='split to test')
     parser.add_argument('--feat_root_dir',
                         default='work_space/IJB_A_features',
                         help='model to test')
     args = parser.parse_args()
+    n_splits = int(args.split)
 
-    if(args.model == 'all'):
-        run_all_my_models(args.feat_root_dir)
-    elif(args.model == 'irse50'):
-        run_ours_IJBA(loader_IJBA, 'ir_se50',
-                      args.feat_root_dir,
-                      xCos_or_original='original',
-                      only_first_image=False)
+    for i in range(n_splits):
+        # Skip split1 because it is done.
+        if i == 0:
+            continue
+        split_num = i + 1
+        print(f'Extracting split{split_num}...')
+        split_name = f'split{split_num}'
+        loader_IJBA = torch.utils.data.DataLoader(
+            IJBAVerificationDataset(only_first_image=False,
+                                    ijba_data_root='data/IJB-A',
+                                    split_name=split_name),
+            batch_size=1,
+            num_workers=4
+        )
 
-    elif(args.model == 'cosface'):
-        print(f'-------- Runing on model {cosFace_model_name} --------')
-        run_ours_IJBA(loader_IJBA, cosFace_model_name,
-                      args.feat_root_dir,
-                      xCos_or_original='xCos',
-                      only_first_image=False)
+        if(args.model == 'all'):
+            run_all_my_models(args.feat_root_dir, split_name)
+        elif(args.model == 'irse50'):
+            run_ours_IJBA(loader_IJBA, 'ir_se50',
+                          args.feat_root_dir, split_name,
+                          xCos_or_original='original',
+                          only_first_image=False)
 
-    elif(args.model == 'arcface'):
-        print(f'-------- Runing on model {arcFace_model_name} --------')
-        run_ours_IJBA(loader_IJBA, arcFace_model_name,
-                      args.feat_root_dir,
-                      xCos_or_original='xCos',
-                      only_first_image=False)
-    else:
-        print('Unknown model name!')
+        elif(args.model == 'cosface'):
+            print(f'-------- Runing on model {cosFace_model_name} --------')
+            run_ours_IJBA(loader_IJBA, cosFace_model_name,
+                          args.feat_root_dir, split_name,
+                          xCos_or_original='xCos',
+                          only_first_image=False)
+
+        elif(args.model == 'arcface'):
+            print(f'-------- Runing on model {arcFace_model_name} --------')
+            run_ours_IJBA(loader_IJBA, arcFace_model_name,
+                          args.feat_root_dir, split_name,
+                          xCos_or_original='xCos',
+                          only_first_image=False)
+        else:
+            print('Unknown model name!')

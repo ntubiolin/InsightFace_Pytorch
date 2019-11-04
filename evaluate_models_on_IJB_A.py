@@ -103,8 +103,8 @@ def run_IJBA_verification(feat_dir, score_fn, score_fn_kargs, shuffle_order,
     scores = []
     init_time = time.time()
     fnames = sorted(glob(op.join(feat_dir, '*.npz')))
-    fnames = [fnames[i] for i in shuffle_order]
-    print(len(fnames))
+    # print(len(fnames))
+    # fnames = [fnames[i] for i in shuffle_order]
     for i, fname in tqdm(enumerate(fnames), total=len(fnames)):
         # if i % 500 == 0:
         #     print(f"Processing match {i}, elapsed {time.time() - init_time:.1f} seconds")
@@ -200,24 +200,30 @@ if __name__ == '__main__':
     # Parse the arguments
     parser = argparse.ArgumentParser(description='evaluation given the feats')
     parser.add_argument('--model', default='all', help='model to test')
+    parser.add_argument('--split', default='1', help='split to test')
     parser.add_argument('--feat_root_dir',
-                        default='work_space/IJB_A_features/IJB-A_full_template/split1',
+                        default='work_space/IJB_A_features/IJB-A_full_template',
                         help='where the features are stored')
     # parser.add_argument('--cmp_strategy', default='mean_comparison',
     #                     help='mean_comparison or compare_only_first_img')
     args = parser.parse_args()
-
-    feat_root_dir = args.feat_root_dir
-    # comparison_strategy = args.cmp_strategy
-    # print('>>>>> Comparison Strategy:', comparison_strategy)
-    if(args.model == 'all'):
-        eval_all_my_models(model_names, feat_root_dir)
-    elif(args.model == 'irse50'):
-        evaluate_irse50_IJB_A(feat_root_dir)
-    elif(args.model == 'cosface'):
-        evaluate_ours_IJB_A(cosface_name, feat_root_dir)
-    elif(args.model == 'arcface'):
-        evaluate_ours_IJB_A(arcface_name, feat_root_dir)
-    else:
-        print('Unknown model name!')
+    split_num = int(args.split)
+    for i in range(split_num):
+        if i == 0:
+            continue
+        split_name = f'split{i+1}'
+        feat_root_dir = op.join(args.feat_root_dir, split_name)
+        # comparison_strategy = args.cmp_strategy
+        # print('>>>>> Comparison Strategy:', comparison_strategy)
+        if(args.model == 'all'):
+            evaluate_irse50_IJB_A(feat_root_dir)
+            eval_all_my_models(model_names, feat_root_dir)
+        elif(args.model == 'irse50'):
+            evaluate_irse50_IJB_A(feat_root_dir)
+        elif(args.model == 'cosface'):
+            evaluate_ours_IJB_A(cosface_name, feat_root_dir)
+        elif(args.model == 'arcface'):
+            evaluate_ours_IJB_A(arcface_name, feat_root_dir)
+        else:
+            print('Unknown model name!')
 
