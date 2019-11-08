@@ -264,7 +264,7 @@ class face_learner(object):
         self.model_attention.eval()
         loader = self._to_loader(carray, conf)
 
-        output_keys = ['xCos', 'gtCos', 'cosPatchedMap', 'attentionMap']
+        output_keys = ['xCos', 'gtCos', 'attentionMap', 'cosPatchedMap']
         output_dict = {key: [] for key in output_keys}
 
         with torch.no_grad():
@@ -321,7 +321,6 @@ class face_learner(object):
 
             for key in output_keys:
                 output_dict[key] = np.concatenate(output_dict[key], axis=0)
-
         if returnXCAP:
             return (output_dict[key] for key in output_keys)
 
@@ -445,7 +444,6 @@ class face_learner(object):
                 carray, conf, tta=tta, attention=attention, returnXCAP=True)
         # tpr, fpr, accuracy, best_thresholds = evaluate_attention(
         #         xCoses, issame, nrof_folds)
-
         threshold = conf.threshold_xCos
         for i, xCos in enumerate(tqdm(xCoses)):
             gtCos = gtCoses[i]
