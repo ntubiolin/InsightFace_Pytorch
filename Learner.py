@@ -609,6 +609,8 @@ class face_learner(object):
                             model_only=True,
                             strict=False,
                             model_atten=False)
+        else:
+            print('>>> Warning: no use of pretrained backbone weights')
         self.model.train()
         self.model_attention.train()
         # print('>>> Initialize, testing xCos on lfw')

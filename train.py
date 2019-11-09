@@ -15,8 +15,16 @@ if __name__ == '__main__':
     parser.add_argument("-w", "--num_workers", help="workers number", default=4, type=int)
     parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, casia]",default='emore', type=str)
     parser.add_argument("-c", "--comment", help="comment to attach",default='', type=str)
-    parser.add_argument("-dg", "--detach_gradient", help="Whether to detach xCos gradient",default=True, type=bool)
-    parser.add_argument("-lp", "--load_pretrained", help="Whether to load backbone pretrained weights",default=True, type=bool)
+    # parser.add_argument("-dg", "--detach_gradient", help="Whether to detach xCos gradient",default=True, type=bool)
+    # parser.add_argument("-lp", "--load_pretrained", help="Whether to load backbone pretrained weights",default=True, type=bool)
+    # add detach_gradient feature
+    parser.add_argument('--detach_gradient', dest='detach_gradient', action='store_true', help="Whether to detach xCos gradient")
+    parser.add_argument('--no_detach_gradient', dest='detach_gradient', action='store_false')
+    parser.set_defaults(detach_gradient=True)
+    # add load pretrained weights feature
+    parser.add_argument('--load_pretrained', dest='load_pretrained', action='store_true', help="Whether to load backbone pretrained weights")
+    parser.add_argument('--no_load_pretrained', dest='load_pretrained', action='store_false')
+    parser.set_defaults(load_pretrained=True)
     args = parser.parse_args()
 
     conf = get_config()
