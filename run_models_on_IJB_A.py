@@ -142,6 +142,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='feature extraction')
     # general
     parser.add_argument('--model', default='all', help='model to test')
+    parser.add_argument('--dataset', default='official',
+                        help='frontal or official')
     parser.add_argument('--split', default='1', help='split to test')
     parser.add_argument('--feat_root_dir',
                         default='work_space/IJB_A_features',
@@ -151,20 +153,33 @@ if __name__ == '__main__':
 
     for i in range(n_splits):
         # Skip split1 because it is done.
-        if i == 0:
-            continue
+        # if i == 0:
+        #     continue
         split_num = i + 1
         print(f'Extracting split{split_num}...')
         split_name = f'split{split_num}'
+        if args.dataset == 'official':
+            ijba_data_root = 'data/IJB-A'
+            crop_face = True
+        elif args.dataset == 'frontal':
+            ijba_data_root = 'data/IJB_A_Frontal'
+            crop_face = False
+        else:
+            raise NotImplementedError
         loader_IJBA = torch.utils.data.DataLoader(
             IJBAVerificationDataset(only_first_image=False,
-                                    ijba_data_root='data/IJB-A',
-                                    split_name=split_name),
+                                    ijba_data_root=ijba_data_root,
+                                    split_name=split_name,
+                                    crop_face=crop_face),
             batch_size=1,
             num_workers=4
         )
 
         if(args.model == 'all'):
+            run_ours_IJBA(loader_IJBA, 'ir_se50',
+                          args.feat_root_dir, split_name,
+                          xCos_or_original='original',
+                          only_first_image=False)
             run_all_my_models(args.feat_root_dir, split_name)
         elif(args.model == 'irse50'):
             run_ours_IJBA(loader_IJBA, 'ir_se50',

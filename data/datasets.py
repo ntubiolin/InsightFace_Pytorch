@@ -1039,7 +1039,8 @@ def make_square_box(box):
 
 class IJBAVerificationDataset(Dataset):
     def __init__(self, ijba_data_root='/tmp3/zhe2325138/IJB/IJB-A/', split_name='split1',
-                 only_first_image=False, aligned_facial_3points=False):
+                 only_first_image=False, aligned_facial_3points=False,
+                 crop_face=True):
         self.ijba_data_root = ijba_data_root
         split_root = op.join(ijba_data_root, 'IJB-A_11_sets', split_name)
         self.only_first_image = only_first_image
@@ -1059,6 +1060,7 @@ class IJBAVerificationDataset(Dataset):
 
         self.aligned_facial_3points = aligned_facial_3points
         self.src_facial_3_points = self._get_source_facial_3points()
+        self.crop_face = crop_face
 
     def _get_source_facial_3points(self, output_size=(112, 112)):
         # set source landmarks based on 96x112 size
@@ -1084,10 +1086,16 @@ class IJBAVerificationDataset(Dataset):
         if self.aligned_facial_3points:
             raise NotImplementedError
         else:
-            face_box = [entry['FACE_X'], entry['FACE_Y'], entry['FACE_X'] + entry['FACE_WIDTH'],
-                        entry['FACE_Y'] + entry['FACE_HEIGHT']]  # left, upper, right, lower
-            face_box = make_square_box(face_box) if square else face_box
-            face_img = img.crop(face_box)
+            if self.crop_face:
+                # left, upper, right, lower
+                face_box = [entry['FACE_X'],
+                            entry['FACE_Y'],
+                            entry['FACE_X'] + entry['FACE_WIDTH'],
+                            entry['FACE_Y'] + entry['FACE_HEIGHT']]
+                face_box = make_square_box(face_box) if square else face_box
+                face_img = img.crop(face_box)
+            else:
+                face_img = img
         return face_img
 
     def _get_tensor_from_entries(self, entries):
@@ -1102,7 +1110,6 @@ class IJBAVerificationDataset(Dataset):
         t1_entries, t2_entries = self.metadata.loc[[t1]], self.metadata.loc[[t2]]
         if self.only_first_image:
             t1_entries, t2_entries = t1_entries.iloc[:1], t2_entries.iloc[:1]
-
         t1_tensors = self._get_tensor_from_entries(t1_entries)
         t2_tensors = self._get_tensor_from_entries(t2_entries)
         if self.only_first_image:
