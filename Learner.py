@@ -46,7 +46,7 @@ class face_learner(object):
         self.model_attention = AttentionXCosNet(conf).to(conf.device)
         self.xCos_loss_with_attention = CosAttentionLoss()
         # Create model_gt for cos_gt generation
-        self.model_tgt = Backbone(conf.net_depth,
+        self.model_tgt = Backbone(conf.target_net_depth,
                                   conf.drop_ratio, conf.net_mode)
         self.model_tgt = self.model_tgt.to(conf.device)
         self.model_tgt.load_state_dict(torch.load(conf.save_path/'model_{}'
@@ -603,11 +603,12 @@ class face_learner(object):
     #             return log_lrs, losses
 
     def train(self, conf, epochs, resume=True):
-        self.load_state(conf, conf.fixed_str,
-                        from_save_folder=True,
-                        model_only=True,
-                        strict=False,
-                        model_atten=False)
+        if conf.usePretrainedWeights:
+            self.load_state(conf, conf.fixed_str,
+                            from_save_folder=True,
+                            model_only=True,
+                            strict=False,
+                            model_atten=False)
         self.model.train()
         self.model_attention.train()
         # print('>>> Initialize, testing xCos on lfw')

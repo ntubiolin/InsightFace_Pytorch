@@ -11,6 +11,7 @@ def get_config(training = True):
     conf.exp_comment = 'MS1M_detached'
 
     conf.detachAttentionGradient = True
+    conf.usePretrainedWeights = True
     conf.fixed_str = 'ir_se50.pth'
     conf.pretrainedMdl = 'ir_se50.pth'
     # conf.fixed_str = '2019-08-24-10-31_accuracy:0.9194285714285716_step:76660_None.pth'
@@ -24,6 +25,7 @@ def get_config(training = True):
     conf.embedding_size = 1568 #3136 #512
     conf.use_mobilfacenet = False
     conf.modelType = 'ArcFace'
+    conf.target_net_depth=50
     conf.net_depth = 50
     conf.drop_ratio = 0.6
     conf.net_mode = 'ir_se' # or 'ir'

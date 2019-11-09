@@ -16,6 +16,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, casia]",default='emore', type=str)
     parser.add_argument("-c", "--comment", help="comment to attach",default='', type=str)
     parser.add_argument("-dg", "--detach_gradient", help="Whether to detach xCos gradient",default=True, type=bool)
+    parser.add_argument("-lp", "--load_pretrained", help="Whether to load backbone pretrained weights",default=True, type=bool)
     args = parser.parse_args()
 
     conf = get_config()
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     conf.data_mode = args.data_mode
     conf.exp_comment += args.comment
     conf.detachAttentionGradient = args.detach_gradient
+    conf.usePretrainedWeights = args.load_pretrained
     learner = face_learner(conf)
 
     learner.train(conf, args.epochs)
