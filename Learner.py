@@ -21,6 +21,7 @@ from networks import AttentionXCosNet
 from net_sphere import sphere20a, AngleLoss, AngleLinear
 from verification import evaluate, evaluate_attention
 from losses import l2normalize, CosAttentionLoss
+
 plt.switch_backend('agg')
 
 
@@ -31,13 +32,7 @@ class face_learner(object):
         if conf.use_mobilfacenet:
             self.model = MobileFaceNet(conf.embedding_size).to(conf.device)
             print('MobileFaceNet model generated')
-        elif conf.modelType == 'ArcFace':
-            self.model = Backbone_FC2Conv(conf.net_depth,
-                                          conf.drop_ratio,
-                                          conf.net_mode).to(conf.device)
-            print('{}_{} model generated'.format(conf.net_mode,
-                                                 conf.net_depth))
-        elif conf.modelType == 'CosFace':
+        elif conf.modelType == 'ArcFace' or conf.modelType == 'CosFace':
             self.model = Backbone_FC2Conv(conf.net_depth,
                                           conf.drop_ratio,
                                           conf.net_mode).to(conf.device)
@@ -57,6 +52,9 @@ class face_learner(object):
         self.model_tgt.load_state_dict(torch.load(conf.save_path/'model_{}'
                                        .format(conf.pretrainedMdl)))
         self.model_tgt = self.model_tgt.eval()
+
+        self.log_text = \
+            f"{conf.modelType}_ResNet{conf.net_depth}_detach_{conf.detachAttentionGradient}_{conf.exp_comment}"
 
         if inference:
             self.threshold = conf.threshold
@@ -81,7 +79,7 @@ class face_learner(object):
 
             self.writer = SummaryWriter(os.path.join(conf.log_path,
                                         conf.exp_title + '/' +
-                                        conf.exp_comment))
+                                        self.log_text))
             self.step = 0
 
             print('two model heads generated')
@@ -114,7 +112,6 @@ class face_learner(object):
             self.lfw_issame: (6000,)
             '''
             self.agedb_30, self.cfp_fp, self.lfw, self.agedb_30_issame, self.cfp_fp_issame, self.lfw_issame = get_val_data(self.loader.dataset.root.parent)
-
 
     def getCos(self, imgs):
         '''
@@ -157,20 +154,20 @@ class face_learner(object):
             save_path = conf.model_path
         torch.save(
             self.model.state_dict(), save_path /
-            ('model_{}_accuracy:{}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
+            ('model_{}_accuracy:{:.5f}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
         torch.save(
             self.model_attention.state_dict(), save_path /
-            ('model_attention_{}_accuracy:{}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
+            ('model_attention_{}_accuracy:{:.5f}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
         if not model_only:
             torch.save(
                 self.head.state_dict(), save_path /
-                ('head_{}_accuracy:{}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
+                ('head_{}_accuracy:{:.5f}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
             torch.save(
                 self.optimizer_fr.state_dict(), save_path /
-                ('optimizer_fr_{}_accuracy:{}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
+                ('optimizer_fr_{}_accuracy:{:.5f}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
             torch.save(
                 self.optimizer_atten.state_dict(), save_path /
-                ('optimizer_atten_{}_accuracy:{}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
+                ('optimizer_atten_{}_accuracy:{:.5f}_step:{}_{}.pth'.format(time_log, accuracy, self.step, extra)))
 
     def load_state(self, conf, fixed_str,
                    from_save_folder=False,
@@ -697,11 +694,11 @@ class face_learner(object):
                     self.model.train()
                     self.model_attention.train()
                 if self.step % self.save_every == 0 and self.step != 0:
-                    self.save_state(conf, accuracy, extra=conf.modelType)
+                    self.save_state(conf, accuracy, extra=self.log_text)
 
                 self.step += 1
 
-        self.save_state(conf, accuracy, to_save_folder=True, extra='final')
+        self.save_state(conf, accuracy, to_save_folder=True, extra=self.log_text + '_final')
 
     def schedule_lr(self):
         for params in self.optimizer_fr.param_groups:

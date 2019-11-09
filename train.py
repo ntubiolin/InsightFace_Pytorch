@@ -14,6 +14,7 @@ if __name__ == '__main__':
     parser.add_argument("-b", "--batch_size", help="batch_size", default=96, type=int)
     parser.add_argument("-w", "--num_workers", help="workers number", default=4, type=int)
     parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, casia]",default='emore', type=str)
+    parser.add_argument("-c", "--comment", help="comment to attach",default='', type=str)
     args = parser.parse_args()
 
     conf = get_config()
@@ -28,6 +29,7 @@ if __name__ == '__main__':
     conf.batch_size = args.batch_size
     conf.num_workers = args.num_workers
     conf.data_mode = args.data_mode
+    conf.exp_comment += args.comment
     learner = face_learner(conf)
 
     learner.train(conf, args.epochs)

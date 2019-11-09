@@ -154,7 +154,7 @@ class Backbone_FC2Conv(Module):
         self.input_layer = Sequential(Conv2d(3, 64, (3, 3), 1, 1, bias=False),
                                       BatchNorm2d(64),
                                       PReLU(64))
-
+        # I only append this module
         self.conv1x1 = Sequential(Conv2d(512, 32, (1, 1), 1, 0),
                                   BatchNorm2d(32),
                                   PReLU(32))
@@ -172,18 +172,22 @@ class Backbone_FC2Conv(Module):
                                 bottleneck.depth,
                                 bottleneck.stride))
         self.body = Sequential(*modules)
+        # Newly appended
         self.returnGrid = returnGrid
 
     def forward(self, x):
         x = self.input_layer(x)
         x = self.body(x)
         # x.size() : [bs, 512, 7, 7]
+
         # x = self.output_layer(x)
         x = self.conv1x1(x)
         # x.size() : [bs, 32, 7, 7]
+
         grid_feat = x
         x = x.flatten(1)
         # x.size() : [bs, 1568]
+
         if self.returnGrid:
             return l2_norm(x), grid_feat
         else:
