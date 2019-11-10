@@ -209,8 +209,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     split_num = int(args.split)
     for i in range(split_num):
-        if i == 0:
-            continue
+        # if i == 0:
+        #     continue
         split_name = f'split{i+1}'
         feat_root_dir = op.join(args.feat_root_dir, split_name)
         # comparison_strategy = args.cmp_strategy

@@ -15,6 +15,8 @@ if __name__ == '__main__':
     parser.add_argument("-w", "--num_workers", help="workers number", default=4, type=int)
     parser.add_argument("-d", "--data_mode", help="use which database, [vgg, ms1m, emore, concat, casia]",default='emore', type=str)
     parser.add_argument("-c", "--comment", help="comment to attach",default='', type=str)
+    parser.add_argument("-p", "--pretrained_path", help="pretrained weight path",default='ir_se50.pth', type=str)
+
     # parser.add_argument("-dg", "--detach_gradient", help="Whether to detach xCos gradient",default=True, type=bool)
     # parser.add_argument("-lp", "--load_pretrained", help="Whether to load backbone pretrained weights",default=True, type=bool)
     # add detach_gradient feature
@@ -42,6 +44,7 @@ if __name__ == '__main__':
     conf.exp_comment += args.comment
     conf.detachAttentionGradient = args.detach_gradient
     conf.usePretrainedWeights = args.load_pretrained
+    conf.fixed_str = args.pretrained_path
     learner = face_learner(conf)
 
     learner.train(conf, args.epochs)
