@@ -25,10 +25,18 @@ learner = face_learner(conf, inference=True)
 
 
 def l2normalize(x, ord=2, axis=None):
+    '''
+    Input:
+        x: of shape (feat dim, )
+    '''
     return x / np.linalg.norm(x, ord=ord, axis=axis)
 
 
 def score_fn_original(feat1, feat2):
+    '''
+    Input: 
+        feat1, feat2: of shape (feat dim, feat dim)
+    '''
     return l2normalize(feat1).dot(l2normalize(feat2))
 
 
@@ -80,10 +88,16 @@ def evaluate_and_plot(scores, is_sames, logger, nrof_folds=10,
 
 
 def _get_feature_original(feat_dir, suffixes, ends_with='.npy'):
-    return np.concatenate([
-        np.load(op.join(feat_dir, suffix[0]) + ends_with)
-        for suffix in suffixes
-    ], axis=0)
+    '''
+    Return value:
+        feats: it is of shape (# of suffixes, feat dimension)
+    '''
+    feats = []
+    for suffix in suffixes:
+        feat = np.load(op.join(feat_dir, suffix[0]) + ends_with)
+        feats.append(feat)
+    feats = np.array(feats)
+    return feats
 
 
 def _get_feature_ours(feat_dir, suffixes, ends_with='.npz'):
@@ -174,7 +188,7 @@ def record_scores_and_acc(scores, acc, name, name2=None):
 
 
 # ## Run irse-50 model
-def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy):
+def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir):
     model_name = f'{dataset_name}_ir_se50'
 
     log_filename = f"logs/Log_{model_name}.txt"
@@ -182,7 +196,8 @@ def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy):
     logger = logging.getLogger()
 
     scores, is_sames = run_YTF_verification(
-        loader, feat_dir=f'work_space/{dataset_name}_features/{model_name}/',
+        # loader, feat_dir=f'work_space/{dataset_name}_features/{model_name}/',
+        loader, feat_dir=f'{feat_root_dir}/{model_name}/',
         score_fn=score_fn_original, _get_feature=_get_feature_original,
         compare_strategy=comparison_strategy, score_fn_kargs={},
         logger=logger,
@@ -245,7 +260,7 @@ def main():
                                                  'given the features')
     parser.add_argument('--model', default='all', help='model to test')
     parser.add_argument('--feat_root_dir',
-                        default='work_space/YTF_features_aligned',
+                        default='work_space/features/YTF_features',
                         help='where the features are stored')
     parser.add_argument('--cmp_strategy', default='mean_comparison',
                         help='mean_comparison or compare_only_first_img')
@@ -264,10 +279,10 @@ def main():
         batch_size=1, shuffle=False
     )
     if(args.model == 'all'):
-        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy)
+        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
         eval_all_models(model_names, loader, dataset_name, comparison_strategy)
     elif(args.model == 'irse50'):
-        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy)
+        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
     elif(args.model == 'cosface'):
         evaluate_ours_YTF(model_names[0], loader, dataset_name,
                           comparison_strategy)
