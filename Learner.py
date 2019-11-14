@@ -313,13 +313,13 @@ class face_learner(object):
 
             for batch in loader:
                 xCos, gtCos, cos_patched, attentionMap = batch2XCosAndGtCos(batch, attention, conf, tta)
-                for output_key, output in zip(output_keys, [xCos, gtCos, cos_patched, attentionMap]):
+                for output_key, output in zip(output_keys, [xCos, gtCos, attentionMap, cos_patched]):
                     output_dict[output_key].append(output)
 
             for key in output_keys:
                 output_dict[key] = np.concatenate(output_dict[key], axis=0)
         if returnXCAP:
-            return (output_dict[key] for key in output_keys)
+            return (output_dict[key] for key in ['xCos', 'gtCos', 'attentionMap', 'cosPatchedMap'])
 
         if returnCosGt:
             return (output_dict[key] for key in ['xCos', 'gtCos'])
@@ -453,7 +453,7 @@ class face_learner(object):
             isTheSamePerson = issame[i]
 
             self.plot_attention_example(gtCos, xCos, threshold,
-                    cosPatchedMap, attentionMap, img1, img2,
+                    attentionMap, cosPatchedMap, img1, img2,
                     isTheSamePerson, exPath)
         #TODO
         # buf = plot_scatter(xCoses, gtCoses, title, 'xCos', 'Cos')
@@ -463,7 +463,8 @@ class face_learner(object):
 
     def plot_attention_example(self, cos_fr, cos_x, threshold,
                                cos_patch, weight_attention,
-                               image1, image2, isSame, exPath):
+                               image1, image2, isSame, exPath,
+                               subtitle=False):
         # XXX This function can be moved to utils.py?
         name1, name2 = 'Left', 'Right'
         isSame = int(isSame)
@@ -479,8 +480,9 @@ class face_learner(object):
         # fig = plt.figure(tight_layout=True, figsize=fig_size)
         # fig = plt.figure(tight_layout=True)
         fig, axs = plt.subplots(1, 4, tight_layout=True, figsize=fig_size)
-        fig.suptitle(title_str +
-                     ' Cos=%.2f xCos=%.2f' % (float(cos_fr), cos_x))
+        if subtitle:
+            fig.suptitle(title_str +
+                         ' Cos=%.2f xCos=%.2f' % (float(cos_fr), cos_x))
 
         [axs[i].set_axis_off() for i in range(4)]
         # axs[0].text(0.5, 0.5, title_str + '\n Cos=%.2f\nxCos=%.2f'%(float(cos_fr), cos_x))

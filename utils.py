@@ -391,3 +391,19 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             texts.append(text)
 
     return texts
+
+
+def getUnitAttention(conf):
+    x = torch.ones(conf.batch_size//2, 1, 7, 7).cuda()
+    x /= x.flatten(2).sum(dim=2).repeat(1, 1, x.size(2) * x.size(3)).view_as(x)
+    return x
+
+
+def getCorrAttention(corr, conf):
+    x = torch.from_numpy(corr).float().cuda()
+    print(x.size())
+    x = x.unsqueeze(0).unsqueeze(0)
+    x = torch.cat(conf.batch_size//2 * [x])
+    x /= x.flatten(2).sum(dim=2).repeat(1, 1, x.size(2) * x.size(3)).view_as(x)
+    print(x.size())
+    return x

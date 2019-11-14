@@ -5,3 +5,12 @@ data/faces_emore
 data/faces_webface_112x112/
 .ipynb_checkpoints/
 notebooks/
+logs/
+test/
+
+.vscode/
+data/IJB-A
+data/IJB_A_Frontal
+data/IJB_release
+data/YTF_aligned_SeqFace
+

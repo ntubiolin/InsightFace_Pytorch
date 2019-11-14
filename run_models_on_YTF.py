@@ -50,7 +50,7 @@ dataset_name = 'YTF'
 loader = torch.utils.data.DataLoader(
     # YTFCroppedFacesDataset('data/YTF_aligned_SeqFace'),
     YTFCroppedFacesDataset('/home/r07944011/datasets_ssd/face/YTF/align_InsightFace/cropped_and_aligned'),
-    batch_size=1
+    batch_size=320
 )
 
 # ## Original model
@@ -59,7 +59,6 @@ def run_irse50_YTF():
                        from_save_folder=True, strict=False,
                        model_atten=False)
     learner.model.eval()
-    learner.model.returnGrid = True  # Remember to reset this before return!
     learner.model_attention.eval()
 
     dst_dir = op.join(feat_root_dir, f'{dataset_name}_ir_se50')
@@ -68,17 +67,22 @@ def run_irse50_YTF():
     with torch.no_grad():
         for i, batch in tqdm(enumerate(loader), total=len(loader)):
             tensor = batch['tensor']
+            batch_size = tensor.size(0)
             src_path = batch['path']
             # if i % 200 == 0:
             #     print(f'Processing {src_path[0]}')
-            os.makedirs(op.join(dst_dir, *src_path[0].split('/')[-3:-1]), exist_ok=True)
-            target_path = op.join(dst_dir, *src_path[0].split('/')[-3:]) + '.npy'
-            if op.exists(target_path):
-                if i % 200 == 0:
-                    print(f"Skipping {target_path} because it exists.")
-                continue
             feat = process_batch_original(tensor, tta=True)
-            np.save(target_path, feat.cpu().numpy())
+            feat = feat.cpu().numpy()
+            for j in range(batch_size):
+                os.makedirs(op.join(dst_dir,
+                                    *src_path[j].split('/')[-3:-1]),
+                            exist_ok=True)
+                target_path = op.join(dst_dir, *src_path[j].split('/')[-3:]) + '.npy'
+                if op.exists(target_path):
+                    if i % 200 == 0:
+                        print(f"Skipping {target_path} because it exists.")
+                    continue
+                np.save(target_path, feat[j])
 
 
 # ## Our model
@@ -129,7 +133,7 @@ if __name__ == '__main__':
     # general
     parser.add_argument('--model', default='all', help='model to test')
     parser.add_argument('--feat_root_dir',
-                        default='work_space/YTF_features_aligned',
+                        default='work_space/features/YTF_features_aligned',
                         help='model to test')
     args = parser.parse_args()
     feat_root_dir = args.feat_root_dir

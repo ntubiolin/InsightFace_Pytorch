@@ -41,8 +41,7 @@ class YTFCroppedFacesDataset(Dataset):
     def __getitem__(self, idx):
         img_path = self.imgs_list[idx]
         try:
-            img = cv2.imread(img_path)
-            img = Image.fromarray(img)
+            img = Image.open(img_path)
         except Exception as e:
             print(e)
             print(img_path)
