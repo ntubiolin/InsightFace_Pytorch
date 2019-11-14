@@ -74,7 +74,7 @@ def evaluate_and_plot(scores, is_sames, logger, nrof_folds=10,
                       specified_kfolds=None):
     accuracy, best_threshold, roc_curve_tensor = \
             learner.evaluate_and_plot_roc(scores, is_sames,
-                                          nrof_folds, specified_kfolds)
+                                          nrof_folds)
     message = f'{dataset_name} - accuray:{accuracy:.5f} ' \
               f'(1-{1-accuracy:.5f}), threshold:{best_threshold}'
     print(message)
@@ -101,11 +101,16 @@ def _get_feature_original(feat_dir, suffixes, ends_with='.npy'):
 
 
 def _get_feature_ours(feat_dir, suffixes, ends_with='.npz'):
-    # print(op.join(feat_dir, suffixes[0][0]) + ends_with)
-    return np.concatenate([
-        np.load(op.join(feat_dir, suffix[0]) + ends_with)['feat_map']
-        for suffix in suffixes
-    ], axis=0)
+    '''
+    Return value:
+        feats: it is of shape (# of suffixes, feat dimension)
+    '''
+    feats = []
+    for suffix in suffixes:
+        feat = np.load(op.join(feat_dir, suffix[0]) + ends_with)['feat_map']
+        feats.append(feat)
+    feats = np.array(feats)
+    return feats
 
 
 def run_YTF_verification(loader, feat_dir, compare_strategy, _get_feature,
@@ -210,7 +215,7 @@ def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir
     all_acc['original_ArcFace'] = acc
 
 
-def evaluate_ours_YTF(model_name, loader, dataset_name, comparison_strategy):
+def evaluate_ours_YTF(model_name, loader, dataset_name, comparison_strategy,feat_root_dir):
     fixed_weight = np.load(f'data/correlation_weights/{model_name}.npy')
     fixed_weight /= fixed_weight.sum()
 
@@ -224,8 +229,7 @@ def evaluate_ours_YTF(model_name, loader, dataset_name, comparison_strategy):
         logger = logging.getLogger()
         scores, is_sames = run_YTF_verification(
             loader,
-            feat_dir=f'work_space/{dataset_name}_'
-                     f'features/{dataset_name}_{model_name}/',
+            feat_dir=f'{feat_root_dir}/{dataset_name}_{model_name}/',
             score_fn=score_fn_ours, _get_feature=_get_feature_ours,
             compare_strategy=comparison_strategy,
             score_fn_kargs={'learner': learner,
@@ -242,11 +246,11 @@ def evaluate_ours_YTF(model_name, loader, dataset_name, comparison_strategy):
         print()
 
 
-def eval_all_models(model_names, loader, dataset_name, comparison_strategy):
+def eval_all_models(model_names, loader, dataset_name, comparison_strategy, feat_root_dir):
     for model_name in model_names:
         print(f'-------- Evaluating on model {model_name} --------')
         evaluate_ours_YTF(model_name, loader,
-                          dataset_name, comparison_strategy)
+                          dataset_name, comparison_strategy, feat_root_dir)
 
 
 def main():
@@ -260,7 +264,7 @@ def main():
                                                  'given the features')
     parser.add_argument('--model', default='all', help='model to test')
     parser.add_argument('--feat_root_dir',
-                        default='work_space/features/YTF_features',
+                        default='work_space/features/YTF_features_aligned',
                         help='where the features are stored')
     parser.add_argument('--cmp_strategy', default='mean_comparison',
                         help='mean_comparison or compare_only_first_img')
@@ -280,15 +284,15 @@ def main():
     )
     if(args.model == 'all'):
         evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
-        eval_all_models(model_names, loader, dataset_name, comparison_strategy)
+        eval_all_models(model_names, loader, dataset_name, comparison_strategy, feat_root_dir)
     elif(args.model == 'irse50'):
         evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
     elif(args.model == 'cosface'):
         evaluate_ours_YTF(model_names[0], loader, dataset_name,
-                          comparison_strategy)
+                          comparison_strategy, feat_root_dir)
     elif(args.model == 'arcface'):
         evaluate_ours_YTF(model_names[1], loader, dataset_name,
-                          comparison_strategy)
+                          comparison_strategy, feat_root_dir)
     else:
         print('Unknown model name!')
 
