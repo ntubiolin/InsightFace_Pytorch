@@ -116,8 +116,8 @@ def run_ours_YTF(model_name):
                     if i % 200 == 0:
                         print(f"Skipping {target_path} because it exists.")
                     continue
-                np.savez(target_path, flattened_feature=flattened_feature,
-                        feat_map=feat_map)
+                np.savez(target_path, flattened_feature=flattened_feature[j],
+                        feat_map=feat_map[j])
 
 
 model_names = [
