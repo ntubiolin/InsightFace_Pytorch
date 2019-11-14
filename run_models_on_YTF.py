@@ -50,7 +50,7 @@ dataset_name = 'YTF'
 loader = torch.utils.data.DataLoader(
     # YTFCroppedFacesDataset('data/YTF_aligned_SeqFace'),
     YTFCroppedFacesDataset('/home/r07944011/datasets_ssd/face/YTF/align_InsightFace/cropped_and_aligned'),
-    batch_size=320
+    batch_size=160
 )
 
 # ## Original model
@@ -67,12 +67,12 @@ def run_irse50_YTF():
     with torch.no_grad():
         for i, batch in tqdm(enumerate(loader), total=len(loader)):
             tensor = batch['tensor']
-            batch_size = tensor.size(0)
             src_path = batch['path']
-            # if i % 200 == 0:
-            #     print(f'Processing {src_path[0]}')
+            batch_size = tensor.size(0)
+
             feat = process_batch_original(tensor, tta=True)
             feat = feat.cpu().numpy()
+            
             for j in range(batch_size):
                 os.makedirs(op.join(dst_dir,
                                     *src_path[j].split('/')[-3:-1]),
@@ -101,17 +101,23 @@ def run_ours_YTF(model_name):
         for i, batch in tqdm(enumerate(loader), total=len(loader)):
             tensor = batch['tensor']
             src_path = batch['path']
-            os.makedirs(op.join(dst_dir, *src_path[0].split('/')[-3:-1]), exist_ok=True)
-            target_path = op.join(dst_dir, *src_path[0].split('/')[-3:]) + '.npz'
-            # if i % 2000 == 0:
-            #    print(f'Processing {src_path[0]} \nSaving to {target_path}')
-            if op.exists(target_path):
-                if i % 2000 == 0:
-                    print(f"Skipping {target_path} because it exists.")
-                continue
+            batch_size = tensor.size(0)
+
             flattened_feature, feat_map = process_batch_xcos(tensor, tta=True)
-            np.savez(target_path, flattened_feature=flattened_feature.cpu().numpy(),
-                     feat_map=feat_map.cpu().numpy())
+            flattened_feature = flattened_feature.cpu().numpy()
+            feat_map = feat_map.cpu().numpy()
+            
+            for j in range(batch_size):
+                os.makedirs(op.join(dst_dir,
+                                    *src_path[j].split('/')[-3:-1]), 
+                            exist_ok=True)
+                target_path = op.join(dst_dir, *src_path[j].split('/')[-3:]) + '.npz'
+                if op.exists(target_path):
+                    if i % 200 == 0:
+                        print(f"Skipping {target_path} because it exists.")
+                    continue
+                np.savez(target_path, flattened_feature=flattened_feature,
+                        feat_map=feat_map)
 
 
 model_names = [
