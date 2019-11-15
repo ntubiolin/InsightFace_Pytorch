@@ -12,7 +12,7 @@ import logging
 from Learner import face_learner
 from config import get_config
 from data.datasets_YTF import YTFVerificationPathDataset
-
+from extract_corr_attention_weights import extractAndSaveCorrAttention
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 
@@ -216,7 +216,11 @@ def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir
 
 
 def evaluate_ours_YTF(model_name, loader, dataset_name, comparison_strategy,feat_root_dir):
-    fixed_weight = np.load(f'data/correlation_weights/{model_name}.npy')
+    corr_weight_file = f'data/correlation_weights/{model_name}.npy'
+    if not op.isfile(corr_weight_file):
+        fixed_weight = extractAndSaveCorrAttention(model_name)
+    else:
+        fixed_weight = np.load(corr_weight_file)
     fixed_weight /= fixed_weight.sum()
 
     for attention_strategy in ['uniform', 'learned', 'fixed']:
@@ -262,8 +266,8 @@ def main():
         # New, detached models
         # '2019-09-06-08-07_accuracy:0.9970000000000001_step:1601204_CosFace.pth',
         # '2019-09-10-07-18_accuracy:0.9968333333333333_step:946166_ArcFace.pth',
-        '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth',
-        '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
+        '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+        '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'
             ]
     # general
     parser = argparse.ArgumentParser(description='evaluation '
