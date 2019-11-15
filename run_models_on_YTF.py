@@ -54,14 +54,14 @@ loader = torch.utils.data.DataLoader(
 )
 
 # ## Original model
-def run_irse50_YTF():
-    learner.load_state(conf, 'ir_se50.pth', model_only=True,
+def run_baseline_YTF(pretrained_name='ir_se50'):
+    learner.load_state(conf, f'{pretrained_name}.pth', model_only=True,
                        from_save_folder=True, strict=False,
                        model_atten=False)
     learner.model.eval()
     learner.model_attention.eval()
 
-    dst_dir = op.join(feat_root_dir, f'{dataset_name}_ir_se50')
+    dst_dir = op.join(feat_root_dir, f'{dataset_name}_{pretrained_name}')
     os.makedirs(dst_dir, exist_ok=True)
 
     with torch.no_grad():
@@ -122,9 +122,13 @@ def run_ours_YTF(model_name):
 
 model_names = [
     # '2019-09-01-15-30_accuracy:0.9946666666666667_step:218346_CosFace',
-    '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
     # '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None',
-    '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None'
+
+    # '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
+    # '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None',
+
+    '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+    '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'
 ]
 
 
@@ -147,12 +151,14 @@ if __name__ == '__main__':
 
     if(args.model == 'all'):
         run_all_my_models()
-        run_irse50_YTF()
-    elif(args.model == 'irse50'):
-        run_irse50_YTF()
+        run_baseline_YTF('ir_se50')
+    elif(args.model == 'arcface_baseline'):
+        run_baseline_YTF('ir_se50')
+    elif(args.model == 'cosface_baseline'):
+        run_baseline_YTF('2019-11-12-03-59_accuracy:0.9269999999999999_step:191058_CosFace_ResNet50_detach_False_MS1M_detachedtwcc')
     elif(args.model == 'cosface'):
         run_ours_YTF(model_names[0])
     elif(args.model == 'arcface'):
         run_ours_YTF(model_names[1])
     else:
-        print('Unknown model name!')
+        print(f'Unknown model name!{args.model}')

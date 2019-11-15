@@ -1005,6 +1005,7 @@ class IJBCroppedFacesDataset(Dataset):
         img_path = self.imgs_list[idx]
         landmark = self.landmarks_list[idx]
         img = cv2.imread(img_path)
+        # XXX cv2.cvtColor(img, cv2.COLOR_BGR2RGB) in the align function
         img = self.alignment.align(img, landmark)
 
         # img_feats.append(embedng.get(img,lmk))

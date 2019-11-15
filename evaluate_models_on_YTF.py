@@ -256,8 +256,14 @@ def eval_all_models(model_names, loader, dataset_name, comparison_strategy, feat
 def main():
     # # Evaluate on YTF
     model_names = [
-        '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
-        '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None'
+        # AAAI 
+        # '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
+        # '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None'
+        # New, detached models
+        # '2019-09-06-08-07_accuracy:0.9970000000000001_step:1601204_CosFace.pth',
+        # '2019-09-10-07-18_accuracy:0.9968333333333333_step:946166_ArcFace.pth',
+        '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth',
+        '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
             ]
     # general
     parser = argparse.ArgumentParser(description='evaluation '
