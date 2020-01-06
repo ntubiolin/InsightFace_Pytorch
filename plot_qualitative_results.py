@@ -17,7 +17,7 @@ def plotResults(conf, learner, exdir, dataset_name='lfw'):
     dataset, dataset_issame = get_val_pair(conf.emore_folder, dataset_name)
     learner.plot_Examples(conf,
                           dataset, dataset_issame,
-                          nrof_folds=10, tta=True,
+                          nrof_folds=10, tta=False,
                           attention=None,
                           exDir=exdir)
 

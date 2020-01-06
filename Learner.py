@@ -4,6 +4,8 @@ import cv2
 import bcolz
 import torch
 import numpy as np
+import base64
+import io
 from torch import optim
 from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
@@ -244,9 +246,12 @@ class face_learner(object):
         return accuracy.mean(), best_thresholds.mean(), roc_curve_tensor
 
     def _to_loader(self, carray_or_loader, conf):
+        # print(type(carray_or_loader))
         if isinstance(carray_or_loader, torch.utils.data.DataLoader):
             loader = carray_or_loader
         elif isinstance(carray_or_loader, bcolz.carray_ext.carray):
+            loader = loader_from_carray(carray_or_loader, conf)
+        elif isinstance(carray_or_loader, torch.Tensor):
             loader = loader_from_carray(carray_or_loader, conf)
         else:
             raise NotImplementedError()
@@ -271,6 +276,9 @@ class face_learner(object):
                     femb_bat1, emb_batch_1 = self.model(batch.to(conf.device))
                     femb_bat2, emb_batch_2 = self.model(fliped.to(conf.device))
                     # XXX or l2norm?
+                    emb_batch_2 = emb_batch_2.flip([2])
+                    femb_bat2 = l2_norm(emb_batch_2.flatten(1))
+
                     emb_batch = (emb_batch_1 + emb_batch_2) / 2
                     femb_bat = (femb_bat1 + femb_bat2) / 2
                 else:
@@ -425,7 +433,7 @@ class face_learner(object):
 
     def plot_Examples(self, conf, carray, issame,
                       nrof_folds=5, tta=False, attention=None,
-                      exDir='defaultExamples'):
+                      exDir='defaultExamples', filename='export.png'):
         '''
         carray: list (2 * # of pairs, 3, 112, 112)
         issame: list (# of pairs,)
@@ -433,7 +441,8 @@ class face_learner(object):
         xCoses: list (# of pairs,)
         attention: GPUtorch.FloatTensor((bs//2, 1, 7, 7)),is ones/sum() or corr
         '''
-        exPath = str(self.conf.work_path) + '/' + exDir
+        # exPath = str(self.conf.work_path) + '/' + exDir
+        exPath = exDir
         if not os.path.exists(exPath):
             os.makedirs(exPath)
 
@@ -448,23 +457,28 @@ class face_learner(object):
             cosPatchedMap = cosPatchedMaps[i]
             img1Idx = i * 2
             img2Idx = img1Idx + 1
-            img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).astype('uint8')
-            img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).astype('uint8')
+            if isinstance(carray, torch.Tensor):
+                img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).numpy().astype('uint8')
+                img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).numpy().astype('uint8')
+            else:
+                img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).astype('uint8')
+                img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).astype('uint8')
             isTheSamePerson = issame[i]
 
-            self.plot_attention_example(gtCos, xCos, threshold,
-                    attentionMap, cosPatchedMap, img1, img2,
-                    isTheSamePerson, exPath)
+            result_base64 = self.plot_attention_example(gtCos, xCos, threshold,
+                            attentionMap, cosPatchedMap, img1, img2,
+                            isTheSamePerson, exPath, filename)
         #TODO
         # buf = plot_scatter(xCoses, gtCoses, title, 'xCos', 'Cos')
         # corrPlot = Image.open(buf)
         # corrPlot_tensor = trans.ToTensor()(corrPlot)
-        return
+        return result_base64
 
     def plot_attention_example(self, cos_fr, cos_x, threshold,
-                               cos_patch, weight_attention,
-                               image1, image2, isSame, exPath,
+                               weight_attention,cos_patch,
+                               image1, image2, isSame, exPath,filename,
                                subtitle=False):
+        plt.gcf().clear()
         # XXX This function can be moved to utils.py?
         name1, name2 = 'Left', 'Right'
         isSame = int(isSame)
@@ -477,13 +491,15 @@ class face_learner(object):
         title_str = getTFNPString(isSame, same)
         # Create visualization
         fig_size = (14, 3)
+        # fig_size = (8, 2)
         # fig = plt.figure(tight_layout=True, figsize=fig_size)
         # fig = plt.figure(tight_layout=True)
         fig, axs = plt.subplots(1, 4, tight_layout=True, figsize=fig_size)
+        # fig, axs = plt.subplots(2, 2, tight_layout=True, figsize=fig_size)
         if subtitle:
             fig.suptitle(title_str +
                          ' Cos=%.2f xCos=%.2f' % (float(cos_fr), cos_x))
-
+        # axs = [axs[0][0], axs[0][1], axs[1][0], axs[1][1]]
         [axs[i].set_axis_off() for i in range(4)]
         # axs[0].text(0.5, 0.5, title_str + '\n Cos=%.2f\nxCos=%.2f'%(float(cos_fr), cos_x))
         axs[0].set_title('Face 1', y=-0.1)
@@ -521,6 +537,7 @@ class face_learner(object):
         axs[0].imshow(image1)
         axs[1].imshow(image2)
         # Show cos_patch
+        print(cos_patch.shape)
         im, cbar = heatmap_seaborn(cos_patch, [], [], ax=axs[2],
                            cmap="RdBu", threshold=threshold)
         # Show weights_attention
@@ -530,11 +547,22 @@ class face_learner(object):
         # axs[3].imshpw(cos_patch)
         # axs[4].imshow(weight_attention)
         # plt.show()
-        img_name = exPath + '/' + title_str + \
-            "_COS_%5.4f_xCos_%5.4f" % (float(cos_fr), cos_x) + '.png'
+
+        # img_name = exPath + '/' + title_str + \
+        #     "_COS_%5.4f_xCos_%5.4f" % (float(cos_fr), cos_x) + '.png'
+        img_name = os.path.join(exPath, filename)
+        print(img_name)
+        score_log_name = os.path.splitext(img_name)[0]+'.txt'
+        with open(score_log_name, 'w') as the_file:
+            the_file.write(f"{cos_x}")
         plt.savefig(img_name, bbox_inches='tight')
-        plt.gcf().clear()
-        return
+
+        # return the base64 image (for demo xCos purpose)
+        pic_IObytes = io.BytesIO()
+        plt.savefig(pic_IObytes,  format='jpg')
+        pic_IObytes.seek(0)
+        pic_hash = base64.b64encode(pic_IObytes.read())
+        return pic_hash
 
     # def find_lr(self,
     #             conf,
