@@ -117,7 +117,7 @@ def run_YTF_verification(loader, feat_dir, compare_strategy, _get_feature,
                          score_fn, score_fn_kargs,
                          logger,
                          learner=None, attention_strategy=None):
-    assert compare_strategy in ['compare_only_first_img', 'mean_comparison']
+    assert compare_strategy in ['compare_only_first_img', 'mean_comparison', 'individual_comparison']
     is_sames = []
     scores = []
     # init_time = time.time()
@@ -153,9 +153,25 @@ def run_YTF_verification(loader, feat_dir, compare_strategy, _get_feature,
                 feat_dir, pair['enroll_path_suffixes']).mean(axis=0)
             verif_feature = _get_feature(
                 feat_dir, pair['verif_path_suffixes']).mean(axis=0)
+        elif compare_strategy == 'individual_comparison':
+            # print('Warning: using mean_comparison')
+            enroll_feature = _get_feature(
+                feat_dir, pair['enroll_path_suffixes'])
+            verif_feature = _get_feature(
+                feat_dir, pair['verif_path_suffixes'])        
         else:
             raise NotImplementedError
-        score = score_fn(enroll_feature, verif_feature, **score_fn_kargs)
+        if compare_strategy == 'individual_comparison':
+            scores_tmp = []
+            for j in range(enroll_feature.shape[0]):
+                for k in range(verif_feature.shape[0]):
+                    score_tmp = score_fn(enroll_feature[j], verif_feature[k], **score_fn_kargs)
+                    scores_tmp.append(score_tmp)
+            scores_tmp = np.array(scores_tmp)
+            score = scores_tmp.mean()
+            print(score)
+        else:
+            score = score_fn(enroll_feature, verif_feature, **score_fn_kargs)
         scores.append(score)
         # XXX: Why is pair['is_same'] a list?
         # if bool(int(pair['is_same'][0])):
@@ -193,8 +209,8 @@ def record_scores_and_acc(scores, acc, name, name2=None):
 
 
 # ## Run irse-50 model
-def evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir):
-    model_name = f'{dataset_name}_ir_se50'
+def evaluate_irse50_YTF(loader, dataset_name, model_file_name, comparison_strategy, feat_root_dir):
+    model_name = f'{dataset_name}_{model_file_name}'
 
     log_filename = f"logs/Log_{model_name}.txt"
     logging.basicConfig(filename=log_filename, level=logging.INFO)
@@ -261,13 +277,19 @@ def main():
     # # Evaluate on YTF
     model_names = [
         # AAAI 
-        # '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
+        '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
         # '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None'
         # New, detached models
         # '2019-09-06-08-07_accuracy:0.9970000000000001_step:1601204_CosFace.pth',
         # '2019-09-10-07-18_accuracy:0.9968333333333333_step:946166_ArcFace.pth',
-        '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
-        '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'
+        # '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+        # '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+
+        # '2019-11-15-15-25_accuracy:0.99583_step:363910_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1',
+        # '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None',
+        # '2019-11-16-09-44_accuracy:0.99650_step:618647_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1',
+
+        '2019-11-12-17-02_accuracy:0.99500_step:191058_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'
             ]
     # general
     parser = argparse.ArgumentParser(description='evaluation '
@@ -277,7 +299,7 @@ def main():
                         default='work_space/features/YTF_features_aligned',
                         help='where the features are stored')
     parser.add_argument('--cmp_strategy', default='mean_comparison',
-                        help='mean_comparison or compare_only_first_img')
+                        help='mean_comparison or compare_only_first_img or individual_comparison')
     args = parser.parse_args()
 
     feat_root_dir = args.feat_root_dir
@@ -293,10 +315,17 @@ def main():
         batch_size=1, shuffle=False
     )
     if(args.model == 'all'):
-        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
+        evaluate_irse50_YTF(loader, dataset_name, 'ir_se50', comparison_strategy, feat_root_dir)
         eval_all_models(model_names, loader, dataset_name, comparison_strategy, feat_root_dir)
-    elif(args.model == 'irse50'):
-        evaluate_irse50_YTF(loader, dataset_name, comparison_strategy, feat_root_dir)
+    elif(args.model == 'arcface_baseline'):
+        # evaluate_irse50_YTF(loader, dataset_name, 'ir_se50', comparison_strategy, feat_root_dir)
+        mdl_name = '2019-11-12-16-09_accuracy:0.8971_step:191058_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce'
+        mdl_name = '2019-11-12-13-55_accuracy:0.8900_step:181960_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce'
+        evaluate_irse50_YTF(loader, dataset_name, mdl_name, comparison_strategy, feat_root_dir)
+
+        
+    elif(args.model == 'cosface_baseline'):
+        evaluate_irse50_YTF(loader, dataset_name, '2019-11-12-03-59_accuracy:0.9269999999999999_step:191058_CosFace_ResNet50_detach_False_MS1M_detachedtwcc', comparison_strategy, feat_root_dir)
     elif(args.model == 'cosface'):
         evaluate_ours_YTF(model_names[0], loader, dataset_name,
                           comparison_strategy, feat_root_dir)

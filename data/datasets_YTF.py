@@ -31,7 +31,6 @@ class YTFCroppedFacesDataset(Dataset):
             transforms.Normalize([.5, .5, .5], [.5, .5, .5]),
         ])
         self.imgs_list = self.loadImgPaths(self.img_dir)
-        # self.alignment = Alignment()
 
     def loadImgPaths(self, img_dir):
         # e.g. dir/Ted_Turner/3/aligned_detect_3.344.jpg
@@ -57,8 +56,8 @@ class YTFCroppedFacesDataset(Dataset):
 
 class YTFVerificationPathDataset(Dataset):
     """
-        This dataset read the match file of verification set in ijb_dataset_root
-        (in the `meta` directory, the filename is sth. like
+        This dataset read the match file of verification set in
+        ijb_dataset_root (in the `meta` directory, the filename is sth. like
         "ijbc_template_pair_label.txt") and output the cropped faces'
         paths of both enroll_template and verif_template for each match.
 
@@ -88,7 +87,6 @@ class YTFVerificationPathDataset(Dataset):
             "verif_template_id": id2,
             "enroll_path_suffixes": path_suffixes(id1),
             "verif_path_suffixes": path_suffixes(id2),
-            # "is_same": self.match.iloc[idx][" is same:"].strip()
             "is_same": self.match.iloc[idx]["corrected labels"].strip()
         }
 

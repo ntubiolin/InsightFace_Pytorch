@@ -70,7 +70,7 @@ def run_baseline_YTF(pretrained_name='ir_se50'):
             src_path = batch['path']
             batch_size = tensor.size(0)
 
-            feat = process_batch_original(tensor, tta=True)
+            feat = process_batch_original(tensor, tta=False)
             feat = feat.cpu().numpy()
             
             for j in range(batch_size):
@@ -87,6 +87,7 @@ def run_baseline_YTF(pretrained_name='ir_se50'):
 
 # ## Our model
 def run_ours_YTF(model_name):
+    print('>>>> Running ours YTF', model_name)
     learner.load_state(
         conf, f'{model_name}.pth',
         model_only=True, from_save_folder=True, strict=True, model_atten=True)
@@ -103,7 +104,7 @@ def run_ours_YTF(model_name):
             src_path = batch['path']
             batch_size = tensor.size(0)
 
-            flattened_feature, feat_map = process_batch_xcos(tensor, tta=True)
+            flattened_feature, feat_map = process_batch_xcos(tensor, tta=False)
             flattened_feature = flattened_feature.cpu().numpy()
             feat_map = feat_map.cpu().numpy()
             
@@ -124,10 +125,18 @@ model_names = [
     # '2019-09-01-15-30_accuracy:0.9946666666666667_step:218346_CosFace',
     # '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None',
 
-    # '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
-    # '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None',
+    '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace',
+    # '2019-08-30-07-36_accuracya:0.9953333333333333_step:655047_None',
 
-    '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+    # '2019-11-12-15-54_accuracy:0.99550_step:155260_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+    # '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe',
+
+    # '2019-11-15-15-25_accuracy:0.99583_step:363910_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1',
+    # '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None',
+
+    # '2019-11-16-09-44_accuracy:0.99650_step:618647_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1'  
+    # New
+    # '2019-11-12-17-02_accuracy:0.99500_step:191058_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'  
     '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe'
 ]
 
@@ -153,7 +162,12 @@ if __name__ == '__main__':
         run_all_my_models()
         run_baseline_YTF('ir_se50')
     elif(args.model == 'arcface_baseline'):
-        run_baseline_YTF('ir_se50')
+        # run_baseline_YTF('ir_se50')
+        # run_baseline_YTF('2019-11-12-16-09_accuracy:0.8971_step:191058_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce')
+        # run_baseline_YTF('2019-11-12-13-55_accuracy:0.8900_step:181960_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce')
+        mdl_name = '2019-11-12-11-40_accuracy:0.8877_step:172862_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce'
+        run_baseline_YTF(mdl_name)
+
     elif(args.model == 'cosface_baseline'):
         run_baseline_YTF('2019-11-12-03-59_accuracy:0.9269999999999999_step:191058_CosFace_ResNet50_detach_False_MS1M_detachedtwcc')
     elif(args.model == 'cosface'):

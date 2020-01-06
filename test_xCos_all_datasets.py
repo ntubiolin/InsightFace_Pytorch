@@ -74,16 +74,28 @@ def testMyModel(model_name, test_type='atten_xCos'):
 conf = get_config(training=False)
 # XXX Why bs_size can only be the number that divide 6000 well?
 conf.batch_size = 200
+# conf.net_depth = 100
 unit_attention = getUnitAttention(conf)
 learner = face_learner(conf, inference=True)
 
 # model_name = '2019-11-12-03-59_accuracy:0.9269999999999999_step:191058_CosFace_ResNet50_detach_False_MS1M_detachedtwcc.pth'
+# model_name = 'ir_se50.pth'
+# model_name = '2019-11-12-04-06_accuracy:0.9301428571428572_step:172029_CosFace_ResNet100_detach_False_MS1M_detachedtwcc.pth'
+# model_name = '2019-11-11-17-07_accuracy:0.9135714285714286_step:132330_CosFace_ResNet100_detach_False_MS1M_detachedtwcc.pth'
+# model_name = '2019-11-12-16-09_accuracy:0.8971_step:191058_ArcFace_ResNet50_detach_True_MS1M_detachedreproduce.pth'
 # testBaselineModel(model_name)
 
-model_name = '2019-11-11-18-58_accuracy:0.99533_step:100078_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
-# model_name = '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace.pth'
+# model_name = '2019-11-11-18-58_accuracy:0.99533_step:100078_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
+model_name = '2019-09-02-08-21_accuracy:0.9968333333333333_step:436692_CosFace.pth'
 # model_name = '2019-09-06-08-07_accuracy:0.9970000000000001_step:1601204_CosFace.pth'
-
-test_types = ['patch_xCos', 'corr_xCos', 'atten_xCos']
+# model_name = '2019-11-15-12-49_accuracy:0.99650_step:327519_CosFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1.pth'
+# model_name = '2019-11-15-15-25_accuracy:0.99583_step:363910_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1.pth'
+# model_name = '2019-11-15-18-02_accuracy:0.99500_step:400301_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDeL1.pth'
+# model_name = '2019-11-12-08-13_accuracy:0.99567_step:154666_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
+model_name = '2019-11-12-16-32_accuracy:0.99183_step:168207_CosFace_ResNet100_detach_False_MS1M_detachedxCosNoDe.pth'
+model_name = '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None.pth'
+model_name = '2019-08-30-07-36_accuracy:0.9953333333333333_step:655047_None.pth'
+model_name = '2019-11-12-17-02_accuracy:0.99500_step:191058_ArcFace_ResNet50_detach_False_MS1M_detachedxCosNoDe.pth'
+test_types = ['atten_xCos', 'corr_xCos', 'patch_xCos']
 for test_type in test_types:
     testMyModel(model_name, test_type)
