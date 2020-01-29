@@ -16,7 +16,8 @@ from torchvision import transforms as trans
 
 from utils import get_time, gen_plot, plot_scatter, hflip_batch, \
         separate_bn_paras, cosineDim1, MultipleOptimizer,\
-        getTFNPString, heatmap, heatmap_seaborn, annotate_heatmap
+        getTFNPString, heatmap, heatmap_seaborn, annotate_heatmap,\
+        getTextExplaination
 from data.data_pipe import de_preprocess, get_train_loader, get_val_data, loader_from_carray
 from model import Backbone, Arcface, MobileFaceNet, Am_softmax, l2_norm, Backbone_FC2Conv
 from networks import AttentionXCosNet
@@ -443,6 +444,9 @@ class face_learner(object):
         '''
         # exPath = str(self.conf.work_path) + '/' + exDir
         exPath = exDir
+        meta = {
+            "text_explaination": []
+        }
         if not os.path.exists(exPath):
             os.makedirs(exPath)
 
@@ -464,7 +468,7 @@ class face_learner(object):
                 img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).astype('uint8')
                 img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).astype('uint8')
             isTheSamePerson = issame[i]
-
+            meta["text_explaination"].append(getTextExplaination(cosPatchedMap, xCos))
             result_base64 = self.plot_attention_example(gtCos, xCos, threshold,
                             attentionMap, cosPatchedMap, img1, img2,
                             isTheSamePerson, exPath, filename)
@@ -472,7 +476,8 @@ class face_learner(object):
         # buf = plot_scatter(xCoses, gtCoses, title, 'xCos', 'Cos')
         # corrPlot = Image.open(buf)
         # corrPlot_tensor = trans.ToTensor()(corrPlot)
-        return result_base64
+        # XXX result_base64 is the last picture!
+        return result_base64, meta
 
     def plot_attention_example(self, cos_fr, cos_x, threshold,
                                weight_attention,cos_patch,

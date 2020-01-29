@@ -48,16 +48,18 @@ def plotResults(conf, learner, exdir, img1, img2,
     # img2 = cv2.resize(img2, dim, interpolation=cv2.INTER_AREA)
 
     # dataset = np.array([img1, img2])
+    # XXX It causes the meta and image returned with one reduntdant result
     dataset = torch.stack([img1, img2, img1, img2])
     print(dataset.size())
     dataset_issame = np.array([1, 1])
-    img_base64 = learner.plot_Examples(conf,
+    img_base64, meta = learner.plot_Examples(conf,
                                        dataset, dataset_issame,
                                        nrof_folds=10, tta=False,
                                        attention=None,
                                        exDir=exdir,
                                        filename=filename)
-    return img_base64
+    
+    return img_base64, meta
 
 
 def getCroppedTensorFromFilename(filename, transform):

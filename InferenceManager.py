@@ -14,12 +14,11 @@ class InferenceManager():
         self.learner = initialize_learner(conf, mdl_name)
 
     def infer(self, img_name_1, img_name_2, result_filename):
-        print('>>>>>>>>>>>>>>>', img_name_1, img_name_2, result_filename)
-        img_base64 = plotResults(self.conf, self.learner, self.exdir,
+        print('>>>>In inferManager, infer', img_name_1, img_name_2, result_filename)
+        img_base64, meta = plotResults(self.conf, self.learner, self.exdir,
                                  img_name_1, img_name_2, result_filename,
                                  self.dataset_name)
-        print(">>>>>> Inference is done")
-        return img_base64
+        return img_base64, meta
 
     def inferWithoutPlotting(self, upload_filename, filesToCompare):
         image_stack = getPairedTensors(upload_filename, filesToCompare)

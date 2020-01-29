@@ -307,27 +307,27 @@ def heatmap_seaborn(data, row_labels, col_labels, ax=None,
     # cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
     cbar = None
 
-    # We want to show all ticks...
-    ax.set_xticks(np.arange(data.shape[1]))
-    ax.set_yticks(np.arange(data.shape[0]))
-    # ... and label them with the respective list entries.
-    ax.set_xticklabels(col_labels)
-    ax.set_yticklabels(row_labels)
+    # # We want to show all ticks...
+    # ax.set_xticks(np.arange(data.shape[1]))
+    # ax.set_yticks(np.arange(data.shape[0]))
+    # # ... and label them with the respective list entries.
+    # ax.set_xticklabels(col_labels)
+    # ax.set_yticklabels(row_labels)
 
-    # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
+    # # Let the horizontal axes labeling appear on top.
+    # ax.tick_params(top=True, bottom=False,
+    #                labeltop=True, labelbottom=False)
 
-    # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
-             rotation_mode="anchor")
+    # # Rotate the tick labels and set their alignment.
+    # plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
+    #          rotation_mode="anchor")
 
-    # Turn spines off and create white grid.
-    for edge, spine in ax.spines.items():
-        spine.set_visible(False)
+    # # Turn spines off and create white grid.
+    # for edge, spine in ax.spines.items():
+    #     spine.set_visible(False)
 
-    ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-    ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+    # ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+    ax.set_yticks(np.arange(data.shape[0]+1), minor=True)
     ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
     ax.tick_params(which="minor", bottom=False, left=False)
 
@@ -407,3 +407,47 @@ def getCorrAttention(corr, conf):
     x /= x.flatten(2).sum(dim=2).repeat(1, 1, x.size(2) * x.size(3)).view_as(x)
     print(x.size())
     return x
+
+def getTextExplaination(grid_cos_map, xCos, threshold=0.24):
+    """
+    Input 
+        grid_cos_map: np array of shape (h, w)
+    """
+    is_the_same_person = xCos > threshold
+    explaination = "Test explaination"
+    def isHorizontalLocalAreaSimilar(cos_map, area="forehead", 
+                                     threshold=0.24):
+        # print(">>> In isHorizontalLocalAreaSimilar, ")
+        # print(cos_map[0:2].mean(), cos_map[0:2].mean() > threshold)
+        # print(cos_map[2:4].mean(), cos_map[2:4].mean() > threshold)
+        # print(cos_map[3:5].mean(), cos_map[3:5].mean() > threshold)
+        # print(cos_map[5:7].mean(), cos_map[5:7].mean() > threshold)
+        assert area in ["hair_style", "near_eyes", "near_nose", "around_mouth"]
+        if area == "hair_style":
+            return cos_map[0:1, 1:-1].mean() > threshold
+        elif area == "near_eyes":
+            return cos_map[2:4, 1:-1].mean() > threshold
+        elif area == "near_nose":
+            return cos_map[3:5, 1:-1].mean() > threshold
+        elif area == "around_mouth":
+            return cos_map[5:7, 1:-1].mean() > threshold
+    print('*******In getTextExplaination: ', type(grid_cos_map), grid_cos_map.shape)
+    area2highlight = []
+    area_of_interest = ["hair_style", "near_eyes", "near_nose", "around_mouth"]
+    if is_the_same_person:
+        for area in area_of_interest:
+            if not isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
+                area2highlight.append(area)
+        if len(area2highlight) > 0:
+            explaination = f"{', '.join(area2highlight)} is not similar."
+        else:
+            explaination = "They are similar everywhere."
+    else:
+        for area in area_of_interest:
+            if isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
+                area2highlight.append(area)
+        if len(area2highlight) > 0:
+            explaination = f"{', '.join(area2highlight)} is similar."
+        else:
+            explaination = "They are not similar everywhere."
+    return explaination
