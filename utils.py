@@ -408,11 +408,12 @@ def getCorrAttention(corr, conf):
     print(x.size())
     return x
 
-def getTextExplaination(grid_cos_map, xCos, threshold=0.24):
+def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
     """
     Input 
         grid_cos_map: np array of shape (h, w)
     """
+
     is_the_same_person = xCos > threshold
     explaination = "Test explaination"
     def isHorizontalLocalAreaSimilar(cos_map, area="forehead", 
@@ -431,23 +432,40 @@ def getTextExplaination(grid_cos_map, xCos, threshold=0.24):
             return cos_map[3:5, 1:-1].mean() > threshold
         elif area == "around_mouth":
             return cos_map[5:7, 1:-1].mean() > threshold
+    def isHorizontalLocalImportant(atten_map, area="forehead", 
+                                     threshold=0.24):
+        # Borrow the logic from isHorizontalLocalAreaSimilar function
+        return isHorizontalLocalAreaSimilar(atten_map, area, threshold)
     print('*******In getTextExplaination: ', type(grid_cos_map), grid_cos_map.shape)
     area2highlight = []
+    if_highlight_area_atten = []
     area_of_interest = ["hair_style", "near_eyes", "near_nose", "around_mouth"]
     if is_the_same_person:
         for area in area_of_interest:
             if not isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
                 area2highlight.append(area)
+                if_highlight_area_atten.append(isHorizontalLocalImportant(attention_map, area, threshold))
         if len(area2highlight) > 0:
-            explaination = f"{', '.join(area2highlight)} is not similar."
+            explaination = []
+            for i, area in enumerate(area2highlight):
+                importance = "not important" if not if_highlight_area_atten[i] else "important"
+                explaination.append(f"{area} is (1) not similar.(2) {importance}; ")
+            explaination = ''.join(explaination)
+            # explaination = f"{', '.join(area2highlight)} is not similar."
         else:
             explaination = "They are similar everywhere."
     else:
         for area in area_of_interest:
             if isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
                 area2highlight.append(area)
+                if_highlight_area_atten.append(isHorizontalLocalImportant(attention_map, area, threshold))
         if len(area2highlight) > 0:
-            explaination = f"{', '.join(area2highlight)} is similar."
+            explaination = []
+            for i, area in enumerate(area2highlight):
+                importance = "not important" if not if_highlight_area_atten[i] else "important"
+                explaination.append(f"{area} is (1) similar.(2) {importance}; ")
+                explaination = ''.join(explaination)
+            # explaination = f"{', '.join(area2highlight)} is similar."
         else:
             explaination = "They are not similar everywhere."
     return explaination

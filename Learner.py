@@ -436,7 +436,7 @@ class face_learner(object):
                       nrof_folds=5, tta=False, attention=None,
                       exDir='defaultExamples', filename='export.png'):
         '''
-        carray: list (2 * # of pairs, 3, 112, 112)
+        carray: list (2 * # of pairs, 3, 112, 112) CHW and (BGR->training data)
         issame: list (# of pairs,)
         emb_batch: tensor [bs, 32, 7, 7]
         xCoses: list (# of pairs,)
@@ -468,7 +468,7 @@ class face_learner(object):
                 img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).astype('uint8')
                 img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).astype('uint8')
             isTheSamePerson = issame[i]
-            meta["text_explaination"].append(getTextExplaination(cosPatchedMap, xCos))
+            meta["text_explaination"].append(getTextExplaination(cosPatchedMap, attentionMap, xCos))
             result_base64 = self.plot_attention_example(gtCos, xCos, threshold,
                             attentionMap, cosPatchedMap, img1, img2,
                             isTheSamePerson, exPath, filename)
@@ -489,6 +489,7 @@ class face_learner(object):
         isSame = int(isSame)
         image1 = np.transpose(image1,(1, 2, 0))
         image2 = np.transpose(image2,(1, 2, 0))
+        # Input img should be in PIL format (RGB).
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
         image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
 
@@ -643,7 +644,7 @@ class face_learner(object):
                             from_save_folder=True,
                             model_only=True,
                             strict=False,
-                            model_atten=False)
+                            model_atten=False)  
         else:
             print('>>> Warning: no use of pretrained backbone weights')
         self.model.train()
