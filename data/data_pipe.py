@@ -12,7 +12,7 @@ import torch
 import mxnet as mx
 from tqdm import tqdm
 
-from .datasets import SiameseImageFolder, CArrayDataset
+from .datasets import SiameseImageFolder, SiameseDFWImageFolder, CArrayDataset
 
 
 def de_preprocess(tensor):
@@ -30,13 +30,16 @@ def get_train_dataset_backup(imgs_folder):
     return ds, class_num
 
 
-def get_train_dataset(imgs_folder):
+def get_train_dataset(imgs_folder, dataset_type='others'):
     train_transform = trans.Compose([
         trans.RandomHorizontalFlip(),
         trans.ToTensor(),
         trans.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
     ])
-    ds = SiameseImageFolder(imgs_folder, train_transform)
+    if dataset_type == 'dfw':
+        ds = SiameseDFWImageFolder(imgs_folder, train_transform)
+    else:
+        ds = SiameseImageFolder(imgs_folder, train_transform)
     class_num = ds.class_num
     return ds, class_num
 
@@ -62,6 +65,8 @@ def get_train_loader(conf):
         class_num = vgg_class_num + ms1m_class_num
     elif conf.data_mode == 'emore':
         ds, class_num = get_train_dataset(conf.emore_folder/'imgs')
+    elif conf.data_mode == 'dfw':
+        ds, class_num = get_train_dataset(conf.dfw_folder, dataset_type="dfw")
     loader = DataLoader(ds, batch_size=conf.batch_size, shuffle=True, pin_memory=conf.pin_memory, num_workers=conf.num_workers)
     return loader, class_num
 

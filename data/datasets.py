@@ -10,7 +10,9 @@ from torchvision import transforms, datasets
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import BatchSampler
 from torchvision.datasets import ImageFolder
+import random
 from .align import Alignment
+from universal_utils import read_lines_into_list
 cos = nn.CosineSimilarity(dim=0, eps=1e-6)
 
 
@@ -22,6 +24,158 @@ class myImageFolder(ImageFolder):
 
     def __init__(self, root, transform=None, target_transform=None):
         super(myImageFolder, self).__init__(root, transform, target_transform)
+
+class SiameseDFWImageFolder(Dataset):
+    """
+    Train: For each sample creates randomly a positive or a negative pair
+    Test: Creates fixed pairs for testing
+    """
+
+    def __init__(self, imgs_folder_dir, transform, dataset_type="training"):
+        assert dataset_type in ["training", "testing"]
+        print('>>> In SIFolder, imgfolderdir=', imgs_folder_dir)
+        self.root = imgs_folder_dir
+        self.dataset_type = dataset_type
+        matrix_txt_path = os.path.join(self.root, 'Mask_matrices', dataset_type,
+                                       f"{dataset_type}_data_mask_matrix.txt")
+        self.data_mask_matrix = np.loadtxt(matrix_txt_path)
+        img_path_list_path = os.path.join(self.root, f"{dataset_type.capitalize()}_data_face_name.txt")
+        self.img_path_list = read_lines_into_list(img_path_list_path)
+        self.img_label_list, self.name2label = self.img_path_to_label_list(self.img_path_list)
+        self.transform = transform
+        # ############################################
+        # self.wFace_dataset = ImageFolder(imgs_folder_dir, transform)
+        self.class_num = len(self.name2label)
+        # ##################################
+        # # self.memoryAll = False
+
+        # self.train_labels = np.array(self.wFace_dataset.targets, dtype=int)
+        # print('>>> self.train_labels:', self.train_labels[1000:1010])
+
+        # self.train_data = self.wFace_dataset
+
+        # self.labels_set = set(self.train_labels)
+        # self.label_to_indices = {label:
+        #                          np.where(self.train_labels
+        #                                   == label)[0]
+        #                          for label in self.labels_set}
+        # print('>>> Init SiameseDFWImageFolder done!')
+
+    def __getitem__(self, idx):
+        '''
+        img1 = (feat_fc, feat_grid)
+        '''
+        # print('>>> In getItem, idx = ', idx)
+        # Sample the 1-st image
+        img1_path = os.path.join(self.root, self.img_path_list[idx])
+        img1 = self.load_transformed_img_tensor(img1_path)
+        label1 = self.img_label_list[idx]
+        
+        # Sample the 2-nd image
+        # is_the_same_id is a bool that determines whether returning one pair with the same identity.
+        is_the_same_id = np.random.randint(0, 2)
+        ############
+        img2_path = self.get_siamese_path(idx, is_the_same_id)
+        img2_path = os.path.join(self.root, img2_path)
+        # print("In getitem, img2_path: ", img2_path)
+        # print("In getitem, img1_path: ", img1_path)
+        img2 = self.load_transformed_img_tensor(img2_path)
+        label2 = self.img_path_to_label(img2_path)
+        ###################################
+        # img1, label1 = self.train_data[index]  # , self.train_labels[index].item()
+        # if target == 1:
+        #     siamese_index = index
+        #     while siamese_index == index:
+        #         siamese_index = np.random.choice(self.label_to_indices[label1])
+        # else:
+        #     siamese_label = np.random.choice(
+        #             list(self.labels_set - set([label1])))
+        #     siamese_index = np.random.choice(
+        #             self.label_to_indices[siamese_label])
+        # img2, label2 = self.train_data[siamese_index]
+
+        return img1, img2, label1, label2
+
+    def __len__(self):
+        return len(self.img_path_list)
+
+    def img_path_to_label_list(self, path_list):
+        label_list = []
+        name_list = []
+        name2label = {}
+        for path in path_list:
+            # path e.g. Training_data/Matthew_McConaughey/Matthew_McConaughey_h_002.jpg
+            # Assume that Imposter Impersonator is one unique identity
+            if "_I_" in path:
+                name = path.split('/')[-1][:-8]
+            else:
+                name = path.split('/')[1]
+            if not name in name_list:
+                name_list.append(name)
+                name2label[name] = len(name_list) - 1
+            label = name2label[name]
+            label_list.append(label)
+        return label_list, name2label
+    
+    def img_path_to_label(self, path):
+        # path e.g. data/dfw/Training_data/Matthew_McConaughey/Matthew_McConaughey_h_003.jpg
+        if "_I_" in path:
+                name = path.split('/')[-1][:-8]
+        else:
+            name = path.split('/')[3]
+        
+        return self.name2label[name]
+
+    def load_transformed_img_tensor(self, path):
+        img = datasets.folder.default_loader(path)
+        # XXX
+        t = transforms.Resize([112, 112])
+        img = t(img) 
+        # print(img)
+        # print('>>>>> In load_tr, img.size =', img.size())
+        if self.transform is not None:
+            img = self.transform(img)
+        else: 
+            raise NotImplementedError
+        return img
+
+    def get_siamese_path(self, idx, is_the_same_id):
+        '''
+        Input:
+        '''
+        candidate = self.data_mask_matrix[idx]
+        positions = []
+        # print(">>>> Is the same", is_the_same_id)
+        if is_the_same_id:
+            targets = [1, 2]
+            for target in targets:
+                pos = np.where(candidate == target)[0]
+                pos = list(pos)
+                # print(">>>> candidate=", candidate)
+                # print(">>>> pos= ", pos)
+                positions += pos
+            # _I.jpg case (no identical id)
+            if len(positions) == 0:
+                pos3 = np.where(candidate == 3)[0]
+                pos3 = list(pos3)
+                positions += pos3
+        else:
+            pos3 = np.where(candidate == 3)[0]
+            pos4 = np.where(candidate == 4)[0]
+            pos3 = list(pos3)
+            pos4 = list(pos4)
+            # print(">>>> candidate=", candidate)
+            # print(">>>> pos3= ", pos3)
+            # print(">>>> pos4= ", pos4)
+            # _I.jpg case
+            if len(pos4) > 0:
+                pos4 = random.sample(pos4, max(len(pos3), 1)) # at least take 1 sample
+                positions += pos4
+            positions += pos3
+        
+        assert len(positions) > 0
+        siamese_idx = random.choice(positions)            
+        return self.img_path_list[siamese_idx]
 
 
 class SiameseImageFolder(Dataset):
