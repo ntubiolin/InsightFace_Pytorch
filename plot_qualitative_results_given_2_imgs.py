@@ -30,10 +30,11 @@ def plotResults(conf, learner, exdir, img1, img2,
 
     assert dataset_name in ['lfw', 'agedb_30', 'cfp_fp']
     # dataset, dataset_issame = get_val_pair(conf.emore_folder, dataset_name)
-    img1 = Image.open(img1)
-    img2 = Image.open(img2)
-    img1 = mctnn_crop_face(img1)
-    img2 = mctnn_crop_face(img2)
+    img1 = Image.open(img1).convert('RGB')
+    img2 = Image.open(img2).convert('RGB')
+    # In fact, BGR2RGB=True turn RGB into BGR
+    img1 = mctnn_crop_face(img1, BGR2RGB=True)
+    img2 = mctnn_crop_face(img2, BGR2RGB=True)
     # img1 = cv2.imread(img1)
     # img2 = cv2.imread(img2)
     # img1 = Image.fromarray(img1)

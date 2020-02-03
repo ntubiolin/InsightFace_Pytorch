@@ -17,7 +17,7 @@ def pil_to_cv2(img):
     return np.array(img)[..., ::-1]
 
 
-def mctnn_crop_face(img, output_size=(224, 224)):
+def mctnn_crop_face(img, output_size=(224, 224), BGR2RGB=True):
     # set source landmarks based on 96x112 size
     src = np.array([
         [30.2946, 51.6963],
@@ -34,7 +34,8 @@ def mctnn_crop_face(img, output_size=(224, 224)):
     bounding_boxes, landmarks = detect_faces(img)
     if len(landmarks) == 0:
         img = pil_to_cv2(img)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if BGR2RGB:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return cv2_to_pil(img)
 
     dst = landmarks[0].astype(np.float32)
@@ -49,7 +50,8 @@ def mctnn_crop_face(img, output_size=(224, 224)):
     img_cv2 = pil_to_cv2(img)
     # warped = cv2.warpAffine(img_cv2, M, (224, 224), borderValue=0.0)
     warped = cv2.warpAffine(img_cv2, M, output_size, borderValue=0.0)
-    warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
+    if BGR2RGB:
+        warped = cv2.cvtColor(warped, cv2.COLOR_BGR2RGB)
     return cv2_to_pil(warped)
 
 
