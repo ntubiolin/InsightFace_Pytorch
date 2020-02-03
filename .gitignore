@@ -1,8 +1,11 @@
 work_space/
 __pycache__/
 data/__pycache__/
+data/correlation_weights_useless/
 data/faces_emore
 data/faces_webface_112x112/
+data/dfw
+
 .ipynb_checkpoints/
 notebooks/
 logs/
