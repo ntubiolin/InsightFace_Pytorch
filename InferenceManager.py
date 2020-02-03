@@ -13,9 +13,11 @@ class InferenceManager():
         self.dataset_name = dataset_name
         self.learner = initialize_learner(conf, mdl_name)
 
-    def infer(self, img_name_1, img_name_2, result_filename):
+    def infer(self, img_name_1, img_name_2, result_filename, exdir=None):
         print('>>>>In inferManager, infer', img_name_1, img_name_2, result_filename)
-        img_base64, meta = plotResults(self.conf, self.learner, self.exdir,
+        if exdir == None:
+            exdir = self.exdir
+        img_base64, meta = plotResults(self.conf, self.learner, exdir,
                                  img_name_1, img_name_2, result_filename,
                                  self.dataset_name)
         return img_base64, meta
