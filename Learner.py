@@ -11,6 +11,7 @@ from torch.nn import CrossEntropyLoss
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
 from matplotlib import pyplot as plt
+import matplotlib
 from PIL import Image
 from torchvision import transforms as trans
 
@@ -227,7 +228,7 @@ class face_learner(object):
                 if tta:
                     fliped = hflip_batch(batch)
                     emb_batch = self.model(batch.to(conf.device)) + self.model(fliped.to(conf.device))
-                    embeddings[idx:idx + conf.batch_size] = l2_norm(emb_batch)
+                    embeddings[idx:idx + conf.batch_size] = l2_norm(emb_batch).cpu()
                 else:
                     embeddings[idx:idx + conf.batch_size] = self.model(batch.to(conf.device)).cpu()
                 idx += conf.batch_size
@@ -434,7 +435,7 @@ class face_learner(object):
 
     def plot_Examples(self, conf, carray, issame,
                       nrof_folds=5, tta=False, attention=None,
-                      exDir='defaultExamples', filename='export.png'):
+                      exDir='defaultExamples', filename='export.png', visualization=False):
         '''
         carray: list (2 * # of pairs, 3, 112, 112) CHW and (BGR->training data)
         issame: list (# of pairs,)
@@ -468,10 +469,12 @@ class face_learner(object):
                 img1 = ((carray[img1Idx] * 0.5 + 0.5) * 255).astype('uint8')
                 img2 = ((carray[img2Idx] * 0.5 + 0.5) * 255).astype('uint8')
             isTheSamePerson = issame[i]
+            # XXX AttributeError: 'str' object has no attribute 'append'
             meta["text_explaination"].append(getTextExplaination(cosPatchedMap, attentionMap, xCos))
             result_base64 = self.plot_attention_example(gtCos, xCos, threshold,
                             attentionMap, cosPatchedMap, img1, img2,
-                            isTheSamePerson, exPath, filename)
+                            isTheSamePerson, exPath, filename, pair_idx=i,
+                            visualization=visualization)
         #TODO
         # buf = plot_scatter(xCoses, gtCoses, title, 'xCos', 'Cos')
         # corrPlot = Image.open(buf)
@@ -482,7 +485,7 @@ class face_learner(object):
     def plot_attention_example(self, cos_fr, cos_x, threshold,
                                weight_attention,cos_patch,
                                image1, image2, isSame, exPath,filename,
-                               subtitle=False):
+                               subtitle=False, pair_idx=None, visualization=False):
         plt.gcf().clear()
         # XXX This function can be moved to utils.py?
         name1, name2 = 'Left', 'Right'
@@ -493,7 +496,7 @@ class face_learner(object):
         image1 = cv2.cvtColor(image1, cv2.COLOR_BGR2RGB)
         image2 = cv2.cvtColor(image2, cv2.COLOR_BGR2RGB)
 
-        same = 1 if float(cos_fr) > threshold else 0
+        same = 1 if float(cos_x) > threshold else 0
         title_str = getTFNPString(isSame, same)
         # Create visualization
         fig_size = (14, 3)
@@ -553,16 +556,21 @@ class face_learner(object):
         # axs[3].imshpw(cos_patch)
         # axs[4].imshow(weight_attention)
         # plt.show()
-
-        # img_name = exPath + '/' + title_str + \
-        #     "_COS_%5.4f_xCos_%5.4f" % (float(cos_fr), cos_x) + '.png'
+        # XXX
+        if pair_idx:
+            title_str = str(pair_idx) + '_' + title_str
+        img_name = exPath + '/' + title_str + \
+            "_COS_%5.4f_xCos_%5.4f" % (float(cos_fr), cos_x) + '.png'
         img_name = os.path.join(exPath, filename)
         print(img_name)
         score_log_name = os.path.splitext(img_name)[0]+'.txt'
         with open(score_log_name, 'w') as the_file:
             the_file.write(f"{cos_x}")
         plt.savefig(img_name, bbox_inches='tight')
-
+        if visualization:
+            img = cv2.imread(img_name)
+            cv2.imshow('image',img)
+            cv2.waitKey(1000)
         # return the base64 image (for demo xCos purpose)
         pic_IObytes = io.BytesIO()
         plt.savefig(pic_IObytes,  format='jpg')
@@ -644,7 +652,7 @@ class face_learner(object):
                             from_save_folder=True,
                             model_only=True,
                             strict=False,
-                            model_atten=False)  
+                            model_atten=False)
         else:
             print('>>> Warning: no use of pretrained backbone weights')
         self.model.train()

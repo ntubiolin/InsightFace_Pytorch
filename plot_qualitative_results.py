@@ -19,7 +19,8 @@ def plotResults(conf, learner, exdir, dataset_name='lfw'):
                           dataset, dataset_issame,
                           nrof_folds=10, tta=False,
                           attention=None,
-                          exDir=exdir)
+                          exDir=exdir,
+                          visualization=True)
 
 
 def main(conf, mdl_name, exdir, dataset_name):
