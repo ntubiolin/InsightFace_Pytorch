@@ -1,9 +1,11 @@
 import os
+import argparse
 import http.server
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import socketserver
 import json
 import urllib.parse as urlparse
+
 
 from config import get_config
 from InferenceManager import InferenceManager
@@ -63,6 +65,10 @@ class Resquest(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    exdir = '/home/r07944011/demo/xcos-demo/public/results'
+    parser = argparse.ArgumentParser(description='for face verification')
+    parser.add_argument("-e", "--exdir", help="dir to save inference results",default=exdir, type=str)
+    args = parser.parse_args()
     # Define the http server setting
     PORT = 5901
     # Handler = http.server.SimpleHTTPRequestHandler
@@ -70,7 +76,7 @@ if __name__ == "__main__":
     # Define the model config
     mdl_name_default = \
         '2019-08-25-14-35_accuracy:0.9931666666666666_step:218349_None.pth'
-    exdir = '/home/r07944011/demo/xcos-demo/public/results'
+    
     dataset = 'lfw'
     dataset_name = dataset
     conf = get_config(training=False)
@@ -78,7 +84,7 @@ if __name__ == "__main__":
     conf.batch_size = 200
     # Initialize the model manager
     inferenceManager = InferenceManager(conf, mdl_name_default,
-                                        exdir, dataset_name)
+                                        args.exdir, dataset_name)
 
     # Start the http server
     with socketserver.TCPServer(("", PORT), Resquest) as httpd:
