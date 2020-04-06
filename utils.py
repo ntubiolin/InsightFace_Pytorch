@@ -408,15 +408,15 @@ def getCorrAttention(corr, conf):
     print(x.size())
     return x
 
-def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
+def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24, language="zh-TW"):
     """
-    Input 
+    Input
         grid_cos_map: np array of shape (h, w)
     """
-
+    assert language in ['en', 'zh-TW']
     is_the_same_person = xCos > threshold
     explaination = "Test explaination"
-    def isHorizontalLocalAreaSimilar(cos_map, area="forehead", 
+    def isHorizontalLocalAreaSimilar(cos_map, area="forehead",
                                      threshold=0.24):
         # print(">>> In isHorizontalLocalAreaSimilar, ")
         # print(cos_map[0:2].mean(), cos_map[0:2].mean() > threshold)
@@ -432,7 +432,7 @@ def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
             return cos_map[3:5, 1:-1].mean() > threshold
         elif area == "around_mouth":
             return cos_map[5:7, 1:-1].mean() > threshold
-    def isHorizontalLocalImportant(atten_map, area="forehead", 
+    def isHorizontalLocalImportant(atten_map, area="forehead",
                                      threshold=0.24):
         # Borrow the logic from isHorizontalLocalAreaSimilar function
         return isHorizontalLocalAreaSimilar(atten_map, area, threshold)
@@ -440,6 +440,17 @@ def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
     area2highlight = []
     if_highlight_area_atten = []
     area_of_interest = ["hair_style", "near_eyes", "near_nose", "around_mouth"]
+    area_en_to_ch = {
+        "hair_style": "髮型",
+        "near_eyes": "眼睛附近",
+        "near_nose": "鼻子附近",
+        "around_mouth": "嘴巴附近"
+    }
+    importance_en_to_ch = {
+        "important": "重要",
+        "not important": "不重要"
+    }
+
     if is_the_same_person:
         for area in area_of_interest:
             if not isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
@@ -449,11 +460,17 @@ def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
             explaination = []
             for i, area in enumerate(area2highlight):
                 importance = "not important" if not if_highlight_area_atten[i] else "important"
-                explaination.append(f"{area} is (1) not similar.(2) {importance}; ")
+                if language == 'en':
+                    explaination.append(f"{area} is (1) not similar.(2) {importance}; ")
+                elif language == 'zh-TW':
+                    explaination.append(f"{area_en_to_ch[area]} (1) 不像(2) {importance_en_to_ch[importance]}; ")
             explaination = ''.join(explaination)
             # explaination = f"{', '.join(area2highlight)} is not similar."
         else:
-            explaination = "They are similar everywhere."
+            if language == 'en':
+                explaination = "They are similar everywhere."
+            elif language == 'zh-TW':
+                explaination = "兩張臉的每個地方都很像。"
     else:
         for area in area_of_interest:
             if isHorizontalLocalAreaSimilar(grid_cos_map, area, threshold):
@@ -463,9 +480,15 @@ def getTextExplaination(grid_cos_map, attention_map, xCos, threshold=0.24):
             explaination = []
             for i, area in enumerate(area2highlight):
                 importance = "not important" if not if_highlight_area_atten[i] else "important"
-                explaination.append(f"{area} is (1) similar.(2) {importance}; ")
-                explaination = ''.join(explaination)
+                if language == 'en':
+                    explaination.append(f"{area} is (1) similar.(2) {importance}; ")
+                elif language == 'zh-TW':
+                    explaination.append(f"{area_en_to_ch[area]} (1) 像(2) {importance_en_to_ch[importance]}; ")
+            explaination = ''.join(explaination)
             # explaination = f"{', '.join(area2highlight)} is similar."
         else:
-            explaination = "They are not similar everywhere."
+            if language == 'en':
+                explaination = "They are not similar everywhere."
+            elif language == 'zh-TW':
+                explaination = "兩張臉的每個地方都不像。"
     return explaination
