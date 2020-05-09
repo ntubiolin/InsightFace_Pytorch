@@ -8,7 +8,8 @@ from .first_stage import run_first_stage
 
 def detect_faces(image, min_face_size=20.0,
                  thresholds=[0.6, 0.7, 0.8],
-                 nms_thresholds=[0.7, 0.7, 0.7]):
+                 nms_thresholds=[0.7, 0.7, 0.7],
+                 choose_max_bbox=False):
     """
     Arguments:
         image: an instance of PIL.Image.
@@ -124,5 +125,14 @@ def detect_faces(image, min_face_size=20.0,
         keep = nms(bounding_boxes, nms_thresholds[2], mode='min')
         bounding_boxes = bounding_boxes[keep]
         landmarks = landmarks[keep]
-
+    
+    if choose_max_bbox and len(landmarks) != 0:
+        areas = []
+        for bbox in bounding_boxes:
+            width = bbox[2] - bbox[0] + 1.0
+            height = bbox[3] - bbox[1] + 1.0
+            areas.append(width * height)
+        max_area_index = areas.index(max(areas))
+        bounding_boxes = [bounding_boxes[max_area_index]]
+        landmarks = [landmarks[max_area_index]]
     return bounding_boxes, landmarks
