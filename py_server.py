@@ -30,14 +30,15 @@ class Resquest(BaseHTTPRequestHandler):
     def do_GET(self):
 
         upload_filename, galleryFilename, result_path = self.getQuery()
-        img_base64, meta = inferenceManager.infer(upload_filename,
+        img_base64, meta, xcos_score = inferenceManager.infer(upload_filename,
                                             galleryFilename,
                                             result_path)
         print('>>>>>> File exist?: ', os.path.exists(result_path))
         self._set_headers()
         data = {
             'result_base64': img_base64.decode("utf-8"),
-            'explaination': meta['text_explaination']
+            'explaination': meta['text_explaination'],
+            'xcos_score': str(xcos_score)
             }  # deco:bytes2str
         self.wfile.write(json.dumps(data).encode())
 

@@ -53,14 +53,15 @@ def plotResults(conf, learner, exdir, img1, img2,
     dataset = torch.stack([img1, img2, img1, img2])
     print(dataset.size())
     dataset_issame = np.array([1, 1])
-    img_base64, meta = learner.plot_Examples(conf,
+    img_base64, meta, xcos_score = learner.plot_Examples(conf,
                                        dataset, dataset_issame,
                                        nrof_folds=10, tta=False,
                                        attention=None,
                                        exDir=exdir,
-                                       filename=filename)
+                                       filename=filename,
+                                       return_xcos=True)
     
-    return img_base64, meta
+    return img_base64, meta, xcos_score
 
 
 def getCroppedTensorFromFilename(filename, transform):

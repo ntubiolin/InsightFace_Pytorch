@@ -17,10 +17,10 @@ class InferenceManager():
         print('>>>>In inferManager, infer', img_name_1, img_name_2, result_filename)
         if exdir == None:
             exdir = self.exdir
-        img_base64, meta = plotResults(self.conf, self.learner, exdir,
+        img_base64, meta, xcos_score = plotResults(self.conf, self.learner, exdir,
                                  img_name_1, img_name_2, result_filename,
                                  self.dataset_name)
-        return img_base64, meta
+        return img_base64, meta, xcos_score
 
     def inferWithoutPlotting(self, upload_filename, filesToCompare):
         image_stack = getPairedTensors(upload_filename, filesToCompare)

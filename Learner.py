@@ -435,7 +435,8 @@ class face_learner(object):
 
     def plot_Examples(self, conf, carray, issame,
                       nrof_folds=5, tta=False, attention=None,
-                      exDir='defaultExamples', filename='export.png', visualization=False):
+                      exDir='defaultExamples', filename='export.png', visualization=False,
+                      return_xcos=False):
         '''
         carray: list (2 * # of pairs, 3, 112, 112) CHW and (BGR->training data)
         issame: list (# of pairs,)
@@ -475,12 +476,17 @@ class face_learner(object):
                             attentionMap, cosPatchedMap, img1, img2,
                             isTheSamePerson, exPath, filename, pair_idx=i,
                             visualization=visualization)
+        # XXX meta["text_explaination"][0] and [1] are duplicate.
+        meta["text_explaination"] = meta["text_explaination"][0]
         #TODO
         # buf = plot_scatter(xCoses, gtCoses, title, 'xCos', 'Cos')
         # corrPlot = Image.open(buf)
         # corrPlot_tensor = trans.ToTensor()(corrPlot)
         # XXX result_base64 is the last picture!
-        return result_base64, meta
+        if return_xcos:
+            return result_base64, meta, xCoses[0]
+        else:
+            return result_base64, meta
 
     def plot_attention_example(self, cos_fr, cos_x, threshold,
                                weight_attention,cos_patch,
