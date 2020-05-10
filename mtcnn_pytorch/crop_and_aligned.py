@@ -31,7 +31,7 @@ def mctnn_crop_face(img, output_size=(224, 224), BGR2RGB=True):
     src[:, 1] *= (output_size[1] / 112)
 
     # get facial points
-    bounding_boxes, landmarks = detect_faces(img)
+    bounding_boxes, landmarks = detect_faces(img, choose_max_bbox=True)
     if len(landmarks) == 0:
         img = pil_to_cv2(img)
         if BGR2RGB:
